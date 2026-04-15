@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Firebase service account — never commit real credentials
+# firebase.json is kept as a template; real credentials go in .env
+# If you use a real service account JSON, add it here:
+# firebase-service-account.json
+# *-service-account.json
+
+# GeoIP database (download separately)
+data/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,30 @@
+/**
+ * Injection token constants for all driven ports.
+ * Use these symbols with NestJS @Inject() decorator.
+ *
+ * Section 4.1 — 15 tokens total.
+ */
+export const INJECTION_TOKENS = {
+  USER_REPOSITORY:        Symbol('USER_REPOSITORY'),
+  IDENTITY_REPOSITORY:    Symbol('IDENTITY_REPOSITORY'),
+  SESSION_STORE:          Symbol('SESSION_STORE'),
+  TOKEN_REPOSITORY:       Symbol('TOKEN_REPOSITORY'),
+  MANIFEST_REPOSITORY:    Symbol('MANIFEST_REPOSITORY'),
+  PROVIDER_ROUTING_REPOSITORY: Symbol('PROVIDER_ROUTING_REPOSITORY'),
+  EXTENSION_BINDING_REPOSITORY: Symbol('EXTENSION_BINDING_REPOSITORY'),
+  RUNTIME_IDENTITY_REPOSITORY: Symbol('RUNTIME_IDENTITY_REPOSITORY'),
+  EVENT_STORE:            Symbol('EVENT_STORE'),
+  OUTBOX_REPOSITORY:      Symbol('OUTBOX_REPOSITORY'),
+  ABAC_POLICY_REPOSITORY: Symbol('ABAC_POLICY_REPOSITORY'),
+  ALERT_REPOSITORY:       Symbol('ALERT_REPOSITORY'),
+  AUDIT_LOG_REPOSITORY:   Symbol('AUDIT_LOG_REPOSITORY'),
+  ENCRYPTION_PORT:        Symbol('ENCRYPTION_PORT'),
+  OTP_PORT:               Symbol('OTP_PORT'),
+  CACHE_PORT:             Symbol('CACHE_PORT'),
+  QUEUE_PORT:             Symbol('QUEUE_PORT'),
+  METRICS_PORT:           Symbol('METRICS_PORT'),
+  TRACER_PORT:            Symbol('TRACER_PORT'),
+  LOCK_PORT:              Symbol('LOCK_PORT'),
+  PROVIDER_REGISTRY:      Symbol('PROVIDER_REGISTRY'),
+  PROVIDER_ROUTER:        Symbol('PROVIDER_ROUTER'),
+} as const;

@@ -1,0 +1,20 @@
+CREATE TABLE principal_auth_methods (
+  id                      BINARY(16)    NOT NULL,
+  principal_id            BINARY(16)    NOT NULL,
+  type                    ENUM('phone','email','google','github','apple','microsoft') NOT NULL,
+  normalized_value_enc    VARBINARY(512) NOT NULL,
+  normalized_value_enc_kid VARCHAR(36)  NOT NULL,
+  normalized_value_hash   BINARY(32)    NOT NULL,
+  provider_subject        VARCHAR(255),
+  provider_name           VARCHAR(64),
+  verified                TINYINT(1)    NOT NULL DEFAULT 0,
+  verified_at             DATETIME(3),
+  metadata_enc            VARBINARY(4096),
+  metadata_enc_kid        VARCHAR(36),
+  created_at              DATETIME(3)   NOT NULL,
+  updated_at              DATETIME(3)   NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_type_hash (type, normalized_value_hash),
+  UNIQUE KEY uq_provider_subject (type, provider_subject),
+  KEY idx_principal_type (principal_id, type)
+);
