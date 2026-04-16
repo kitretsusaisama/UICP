@@ -68,7 +68,47 @@ export class OtpSendWorker implements OnModuleInit, OnModuleDestroy {
 
     this.logger.debug({ jobId: job.id, channel, purpose }, 'Processing OTP send job');
 
-    const params: SendOtpParams = { tenantId: tenantId ?? '00000000-0000-4000-8000-000000000000', recipient, channel, purpose, code, tenantName };
+    const effectiveTenantId = tenantId ?? '00000000-0000-4000-8000-000000000000';
+
+    // WAR-GRADE DEFENSE: Tenant Cost Controller
+    // Before sending an SMS, check if the tenant has exceeded their daily SMS limit.
+    if (channel === 'SMS') {
+      try {
+        const costKey = `tenant:spend:sms:${effectiveTenantId}:${new Date().toISOString().split('T')[0]}`;
+
+        // This is a naive Node-Redis client connection for the quota.
+        // We use IORedis dynamically or from connection pool.
+        const Redis = require('ioredis');
+        const redisClient = new Redis(this.connection);
+
+        // Use Lua script to atomically check and increment spend limit (max 1000 SMS per day)
+        const luaScript = `
+          local current = tonumber(redis.call('get', KEYS[1]) or "0")
+          if current >= tonumber(ARGV[1]) then
+            return -1
+          else
+            redis.call('incr', KEYS[1])
+            redis.call('expire', KEYS[1], 86400)
+            return current + 1
+          end
+        `;
+        const currentSpend = await redisClient.eval(luaScript, 1, costKey, 1000);
+        await redisClient.quit();
+
+        if (currentSpend === -1) {
+          this.logger.error({ tenantId: effectiveTenantId }, 'SMS DISPATCH BLOCKED: Tenant exceeded daily SMS budget');
+          throw new Error('QUOTA_EXCEEDED: Tenant daily SMS budget exceeded');
+        }
+      } catch (err: any) {
+        if (err.message.includes('QUOTA_EXCEEDED')) {
+          throw err;
+        }
+        this.logger.warn({ err }, 'Failed to check tenant SMS quota — fail closed for safety');
+        throw new Error('QUOTA_CHECK_FAILED: SMS quota check failed');
+      }
+    }
+
+    const params: SendOtpParams = { tenantId: effectiveTenantId, recipient, channel, purpose, code, tenantName };
     await this.otpPort.send(params);
   }
 }

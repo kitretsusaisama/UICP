@@ -36,6 +36,13 @@ export class FirebaseOtpAdapter implements IOtpPort {
       throw new Error('FirebaseOtpAdapter only handles SMS channel');
     }
 
+    // WAR-GRADE DEFENSE: Validate phone number format to prevent sending to virtual/VoIP/premium
+    // using basic regex. In a real system, use libphonenumber-js to thoroughly validate.
+    if (!/^\+[1-9]\d{7,14}$/.test(params.recipient)) {
+      this.logger.warn({ recipient: params.recipient }, 'SMS Dispatch Blocked: Invalid E.164 phone number format');
+      throw new Error('OTP_DELIVERY_FAILED: Invalid phone number format');
+    }
+
     await this.circuitBreaker.execute(() => this.dispatchSms(params));
   }
 

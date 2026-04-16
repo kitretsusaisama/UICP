@@ -209,12 +209,22 @@ function buildFixture(): TestFixture {
     ),
   } as unknown as DistributedLockService;
 
+  const runtimeIdentityService = {
+    ensureForLegacyUser: jest.fn().mockImplementation((user) => Promise.resolve({
+      principalId: user.getId().toString(),
+      tenantId: user.getTenantId().toString(),
+      membershipId: 'membership-id',
+      actorId: 'actor-id',
+    })),
+  } as any;
+
   const handler = new RefreshTokenHandler(
     tokenRepo,
     outboxRepo,
     userRepo,
     tokenService,
     sessionService,
+    runtimeIdentityService,
     lockService,
   );
 

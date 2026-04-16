@@ -41,14 +41,27 @@ export class VelocityAnalyzer {
       { key: `vel:ip:${ipHash}:10m`,   ttl: 600,  threshold: 30 },
     ];
 
+    const luaScript = `
+      local c = redis.call('incr', KEYS[1])
+      if c == 1 then
+        redis.call('expire', KEYS[1], ARGV[1])
+      end
+      return c
+    `;
+    const client = (this.cache as any).getClient?.();
+
     const results = await Promise.allSettled(
       keys.map(async ({ key, ttl }) => {
-        const count = await this.cache.incr(key);
-        // Set TTL only on first increment (count === 1) to avoid resetting the window
-        if (count === 1) {
-          await this.cache.expire(key, ttl);
+        if (client && typeof client.eval === 'function') {
+          return client.eval(luaScript, 1, key, ttl) as Promise<number>;
+        } else {
+          const count = await this.cache.incr(key);
+          // Fallback if atomic eval isn't available
+          if (count === 1) {
+            await this.cache.expire(key, ttl);
+          }
+          return count;
         }
-        return count;
       }),
     );
 

@@ -76,31 +76,56 @@ export class OtpService {
     purpose: OtpPurpose,
   ): Promise<void> {
     const key = this.otpKey(userId, purpose);
+    const consumedKey = `${key}:consumed`;
 
-    // Atomic GETDEL — returns the value and deletes the key in one operation.
-    // If the key doesn't exist (expired or already consumed), returns null.
-    const storedCode = await this.cache.getdel(key);
+    // Atomic GETDEL with Lua script to mark consumed in a single transaction
+    // Returns:
+    //  code if valid
+    //  -1 if already consumed
+    //  -2 if expired (not found)
+    const luaScript = `
+      local val = redis.call('get', KEYS[1])
+      if not val then
+        local consumed = redis.call('get', KEYS[2])
+        if consumed then
+          return -1
+        else
+          return -2
+        end
+      end
+      redis.call('del', KEYS[1])
+      redis.call('set', KEYS[2], '1', 'EX', 300)
+      return val
+    `;
 
-    if (storedCode === null) {
-      // Key missing: either expired or already consumed.
-      // We can't distinguish between the two without a secondary marker,
-      // so we check a "consumed" sentinel key.
-      const consumedKey = `${key}:consumed`;
-      const wasConsumed = await this.cache.get(consumedKey);
+    const client = (this.cache as any).getClient?.();
+    let storedCode: string | null = null;
+    let resultCode: number | string;
 
-      if (wasConsumed !== null) {
+    if (client && typeof client.eval === 'function') {
+      resultCode = await client.eval(luaScript, 2, key, consumedKey);
+      if (resultCode === -1) {
         throw new DomainException(DomainErrorCode.OTP_ALREADY_USED, 'OTP code has already been used');
+      } else if (resultCode === -2) {
+        throw new DomainException(DomainErrorCode.OTP_EXPIRED, 'OTP code has expired');
+      } else {
+        storedCode = String(resultCode);
       }
-
-      throw new DomainException(DomainErrorCode.OTP_EXPIRED, 'OTP code has expired');
+    } else {
+      // Fallback
+      storedCode = await this.cache.getdel(key);
+      if (storedCode === null) {
+        const wasConsumed = await this.cache.get(consumedKey);
+        if (wasConsumed !== null) {
+          throw new DomainException(DomainErrorCode.OTP_ALREADY_USED, 'OTP code has already been used');
+        }
+        throw new DomainException(DomainErrorCode.OTP_EXPIRED, 'OTP code has expired');
+      }
+      await this.cache.set(consumedKey, '1', 300);
     }
 
-    // Mark as consumed (short TTL sentinel to distinguish ALREADY_USED from EXPIRED)
-    const consumedKey = `${key}:consumed`;
-    await this.cache.set(consumedKey, '1', 60); // 60s sentinel
-
     // Timing-safe comparison (Req 6.8)
-    const match = this.timingSafeCodeEqual(submittedCode, storedCode);
+    const match = this.timingSafeCodeEqual(submittedCode, storedCode as string);
     if (!match) {
       throw new DomainException(DomainErrorCode.INVALID_OTP, 'Invalid OTP code');
     }

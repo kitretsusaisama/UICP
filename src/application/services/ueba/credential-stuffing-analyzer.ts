@@ -70,11 +70,24 @@ export class CredentialStuffingAnalyzer {
   // ── Private ──────────────────────────────────────────────────────────────
 
   private async incrementWindow(key: string): Promise<number> {
-    const count = await this.cache.incr(key);
-    if (count === 1) {
-      await this.cache.expire(key, CredentialStuffingAnalyzer.WINDOW_TTL_S);
+    const luaScript = `
+      local c = redis.call('incr', KEYS[1])
+      if c == 1 then
+        redis.call('expire', KEYS[1], ARGV[1])
+      end
+      return c
+    `;
+    const client = (this.cache as any).getClient?.();
+
+    if (client && typeof client.eval === 'function') {
+      return client.eval(luaScript, 1, key, CredentialStuffingAnalyzer.WINDOW_TTL_S) as Promise<number>;
+    } else {
+      const count = await this.cache.incr(key);
+      if (count === 1) {
+        await this.cache.expire(key, CredentialStuffingAnalyzer.WINDOW_TTL_S);
+      }
+      return count;
     }
-    return count;
   }
 
   private computeScore(globalFailures: number, tenantFailures: number): number {

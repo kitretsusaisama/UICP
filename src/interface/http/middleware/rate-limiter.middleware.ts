@@ -245,8 +245,9 @@ export class RateLimiterMiddleware implements NestMiddleware {
   }
 
   /**
-   * Redis-backed token bucket using INCR + EXPIRE.
-   * Atomic: INCR creates the key with value 1 if it doesn't exist.
+   * Redis-backed token bucket using Atomic Lua Script (INCR + EXPIRE).
+   * Ensures that keys do not leak and cause permanent DoS if a crash happens
+   * between INCR and EXPIRE.
    */
   private async consumeRedis(
     key: string,
@@ -257,11 +258,24 @@ export class RateLimiterMiddleware implements NestMiddleware {
     const resetAt = windowStart + windowSeconds;
 
     try {
-      const count = await this.cache!.incr(key);
+      const luaScript = `
+        local c = redis.call('incr', KEYS[1])
+        if c == 1 then
+          redis.call('expire', KEYS[1], ARGV[1])
+        end
+        return c
+      `;
+      const client = (this.cache as any).getClient?.();
+      let count: number;
 
-      // Set TTL on first request in the window
-      if (count === 1) {
-        await this.cache!.expire(key, windowSeconds);
+      if (client && typeof client.eval === 'function') {
+        count = await client.eval(luaScript, 1, key, windowSeconds);
+      } else {
+        this.logger.warn('Atomic rate limiting unavailable: fallback to INCR+EXPIRE');
+        count = await this.cache!.incr(key);
+        if (count === 1) {
+          await this.cache!.expire(key, windowSeconds);
+        }
       }
 
       const remaining = Math.max(0, limit - count);
