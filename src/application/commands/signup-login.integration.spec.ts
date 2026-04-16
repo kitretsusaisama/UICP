@@ -700,7 +700,7 @@ describe('RefreshTokenHandler integration — token reuse detection', () => {
 
     // Mint a real refresh token JWT so parseRefreshToken succeeds
     const tokenService: TokenService = handles.module.get(TokenService);
-    const { token: refreshToken } = tokenService.mintRefreshToken(
+    const { token: refreshToken } = await tokenService.mintRefreshToken(
       activeUser.getId(),
       TenantId.from(TEST_TENANT_ID),
       familyId,
@@ -749,7 +749,7 @@ describe('RefreshTokenHandler integration — token reuse detection', () => {
     const familyId = randomUUID();
 
     const tokenService: TokenService = handles.module.get(TokenService);
-    const { token: refreshToken } = tokenService.mintRefreshToken(
+    const { token: refreshToken } = await tokenService.mintRefreshToken(
       activeUser.getId(),
       TenantId.from(TEST_TENANT_ID),
       familyId,
@@ -772,7 +772,7 @@ describe('RefreshTokenHandler integration — token reuse detection', () => {
     const familyId = randomUUID();
 
     const tokenService: TokenService = handles.module.get(TokenService);
-    const { token: refreshToken, jti } = tokenService.mintRefreshToken(
+    const { token: refreshToken, jti } = await tokenService.mintRefreshToken(
       activeUser.getId(),
       TenantId.from(TEST_TENANT_ID),
       familyId,

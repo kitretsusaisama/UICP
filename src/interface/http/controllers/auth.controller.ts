@@ -380,7 +380,7 @@ export class AuthController {
       });
     }
 
-    const access = this.tokenService.mintAccessToken({
+    const access = await this.tokenService.mintAccessToken({
       principalId: runtimeContext.principalId,
       tenantId,
       membershipId: runtimeContext.membershipId,

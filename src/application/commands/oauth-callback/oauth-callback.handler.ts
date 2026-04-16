@@ -130,7 +130,7 @@ export class OAuthCallbackHandler {
 
     const runtimeIdentity = await this.runtimeIdentityService.ensureForLegacyUser(user, 'member');
     const familyId = randomUUID();
-    const { token: accessToken } = this.tokenService.mintAccessToken({
+    const { token: accessToken } = await this.tokenService.mintAccessToken({
       principalId: runtimeIdentity.principalId,
       tenantId: runtimeIdentity.tenantId,
       membershipId: runtimeIdentity.membershipId,
@@ -143,8 +143,8 @@ export class OAuthCallbackHandler {
       policyVersion: 'legacy-policy-v1',
       manifestVersion: 'legacy-manifest-v1',
     });
-    const { token: refreshToken, jti: refreshJti, expiresAt: refreshExpiresAt } =
-      this.tokenService.mintRefreshToken(user.getId(), tenantId, familyId, runtimeIdentity.membershipId, session.id.toString());
+    const { token: refreshToken, jti: refreshJti, expiresAt: refreshExpiresAt } = await
+      await this.tokenService.mintRefreshToken(user.getId(), tenantId, familyId, runtimeIdentity.membershipId, session.id.toString());
 
     // Save refresh token
     await this.tokenRepo.saveRefreshToken({

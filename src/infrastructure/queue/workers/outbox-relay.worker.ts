@@ -187,6 +187,13 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
    * Domain events are routed to their appropriate processing queues.
    */
   private resolveTargetQueue(eventType: string): string {
+    // WAR-GRADE DEFENSE: Phase 7 SOC & Detection
+    // Threat/security events must route to soc-alert BEFORE falling into audit-write
+    // to ensure replay and reuse events bypass normal logs and immediately trigger SOC pipelines.
+    if (eventType.includes('Threat') || eventType.includes('Reuse')) {
+      return QUEUE_NAMES.SOC_ALERT;
+    }
+
     // Audit events → audit-write queue
     if (
       eventType.includes('Login') ||
@@ -199,11 +206,6 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
       eventType.includes('Otp')
     ) {
       return QUEUE_NAMES.AUDIT_WRITE;
-    }
-
-    // Threat/security events → soc-alert queue
-    if (eventType.includes('Threat') || eventType.includes('Reuse')) {
-      return QUEUE_NAMES.SOC_ALERT;
     }
 
     // Default: audit-write (catch-all for domain events)

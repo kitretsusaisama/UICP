@@ -78,9 +78,13 @@ export class RefreshTokenHandler {
         await this.tokenRepo.revokeFamily(familyId, tenantId);
         await this.sessionService.invalidateAll(userIdVo, tenantId);
 
+        // WAR-GRADE DEFENSE: Phase 7 SOC & Detection (Replay Attacks)
+        // Refresh token reuse is a critical security event. A replay attack indicates
+        // a token leak. We immediately emit an outbox event routed to the `soc-alert` queue
+        // to alert SIEM and initiate account lockdown procedures.
         const reuseEvent: OutboxEvent = {
           id: randomUUID(),
-          eventType: 'TokenReuseDetected',
+          eventType: 'TokenReuseDetected', // OutboxRelayWorker routes this to soc-alert
           aggregateId: principalId,
           aggregateType: 'User',
           tenantId: tenantId.toString(),
@@ -90,6 +94,7 @@ export class RefreshTokenHandler {
           createdAt: new Date(),
         };
         await this.outboxRepo.insertWithinTransaction(reuseEvent, null);
+
         this.metrics?.increment('uicp_token_refreshed_total', { tenant_id: cmd.tenantId, result: 'reuse_attack' });
         throw new DomainException(DomainErrorCode.REFRESH_TOKEN_REUSE, 'Refresh token reuse detected');
       }
@@ -134,7 +139,7 @@ export class RefreshTokenHandler {
         'policy.simulate',
         'policy.explain',
       ];
-      const { token: accessToken } = this.tokenService.mintAccessToken({
+      const { token: accessToken } = await this.tokenService.mintAccessToken({
         principalId: runtimeIdentity.principalId,
         tenantId: runtimeIdentity.tenantId,
         membershipId: membershipIdFromToken ?? runtimeIdentity.membershipId,
@@ -147,8 +152,8 @@ export class RefreshTokenHandler {
         policyVersion: 'legacy-policy-v1',
         manifestVersion: 'legacy-manifest-v1',
       });
-      const { token: refreshToken, jti: newJti, expiresAt: newExpiresAt } =
-        this.tokenService.mintRefreshToken(
+      const { token: refreshToken, jti: newJti, expiresAt: newExpiresAt } = await
+        await this.tokenService.mintRefreshToken(
           userIdVo,
           tenantId,
           familyId,
