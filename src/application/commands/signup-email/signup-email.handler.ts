@@ -62,7 +62,10 @@ export class SignupEmailHandler {
     const emailHash = await this.encryption.hmac(email.getValue(), 'IDENTITY_VALUE');
     const lockKey = DistributedLockService.identityLockKey(cmd.tenantId, emailHash);
 
+    // WAR-GRADE DEFENSE: Phase 5 Temporal Consistency
+    // The lock is now an optimization. DB unique constraints provide the true atomicity.
     return this.lockService.withLock(lockKey, 10000, async () => {
+      // 1. Pre-check
       const existing = await this.identityRepo.findByHash(emailHash, 'EMAIL', tenantId);
       if (existing) {
         this.metrics?.increment('uicp_signup_total', { tenant_id: cmd.tenantId, result: 'conflict' });
@@ -74,7 +77,17 @@ export class SignupEmailHandler {
       const credential = await this.credentialService.hash(rawPassword);
       user.changePassword(credential);
 
-      await this.userRepo.save(user);
+      // 2. Perform DB save expecting ER_DUP_ENTRY ConflictException
+      try {
+        await this.userRepo.save(user);
+      } catch (err: any) {
+        if (err.name === 'ConflictException' || err.code === 'ER_DUP_ENTRY' || err.message?.includes('IDENTITY_ALREADY_EXISTS')) {
+          this.metrics?.increment('uicp_signup_total', { tenant_id: cmd.tenantId, result: 'conflict' });
+          throw new ConflictException('IDENTITY_ALREADY_EXISTS');
+        }
+        throw err;
+      }
+
       await this.runtimeIdentityService.ensureForLegacyUser(user, 'member');
 
       const userId = user.getId().toString();

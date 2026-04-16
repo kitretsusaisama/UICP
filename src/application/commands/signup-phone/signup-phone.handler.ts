@@ -63,7 +63,14 @@ export class SignupPhoneHandler {
     const phoneHash = await this.encryption.hmac(phone.getValue(), 'IDENTITY_VALUE');
     const lockKey = DistributedLockService.identityLockKey(cmd.tenantId, phoneHash);
 
+    // WAR-GRADE DEFENSE: Phase 5 Temporal Consistency
+    // The distributed lock relies on Redis. If Redis is down or experiences a brain-split,
+    // `withLock` may fail open or throw, breaking idempotency and atomicity guarantees.
+    // The true atomicity *MUST* reside in the database layer via unique constraints.
+    // The lock is now an optimization, not the source of truth.
+
     return this.lockService.withLock(lockKey, 10000, async () => {
+      // 1. Check existing to avoid unnecessary DB locks / encryptions
       const existing = await this.identityRepo.findByHash(phoneHash, 'PHONE', tenantId);
       if (existing) {
         this.metrics?.increment('uicp_signup_total', { tenant_id: cmd.tenantId, result: 'conflict' });
@@ -75,7 +82,20 @@ export class SignupPhoneHandler {
       const credential = await this.credentialService.hash(rawPassword);
       user.changePassword(credential);
 
-      await this.userRepo.save(user);
+      // 2. Perform DB save. The underlying MySQL repository MUST enforce a UNIQUE constraint
+      // on (tenant_id, value_hash). If an ER_DUP_ENTRY is caught during save, it will correctly
+      // throw a ConflictException instead of inserting a ghost record.
+      try {
+        await this.userRepo.save(user);
+      } catch (err: any) {
+        // Double check for constraint violation if not already mapped correctly
+        if (err.name === 'ConflictException' || err.code === 'ER_DUP_ENTRY' || err.message?.includes('IDENTITY_ALREADY_EXISTS')) {
+          this.metrics?.increment('uicp_signup_total', { tenant_id: cmd.tenantId, result: 'conflict' });
+          throw new ConflictException('IDENTITY_ALREADY_EXISTS');
+        }
+        throw err;
+      }
+
       await this.runtimeIdentityService.ensureForLegacyUser(user, 'member');
 
       const userId = user.getId().toString();
