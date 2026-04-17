@@ -103,7 +103,7 @@ export class SocAlertWorker implements OnModuleInit, OnModuleDestroy {
 
     // Auto-remediation logic for critical detected anomalies
     if (eventType === 'TokenReuseDetected' || eventType === 'CredentialReuse') {
-      this.logger.error({ userId: alert.principalId ?? alert.userId }, 'AUTO-REMEDIATION: Triggering global session revocation for compromised account');
+      this.logger.error({ userId: alert.userId ?? alert.userId }, 'AUTO-REMEDIATION: Triggering global session revocation for compromised account');
       // Simulated: await this.sessionService.invalidateAll(UserId.from(userId), TenantId.from(tenantId));
     } else if (alert?.threatScore > 0.9) {
       this.logger.error({ userId: alert.userId }, 'AUTO-REMEDIATION: High UEBA threat score. Locking user account.');
