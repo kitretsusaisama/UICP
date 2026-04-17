@@ -74,7 +74,7 @@ const simulateSchema = z.object({
  * Implements: Req 9.1–9.11
  */
 @ApiExcludeController()
-@Controller(['iam', 'api/v1/iam'])
+@Controller(['iam', 'v1/iam'])
 export class IamController {
   private readonly logger = new Logger(IamController.name);
 

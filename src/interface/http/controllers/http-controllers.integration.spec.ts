@@ -293,7 +293,7 @@ async function createApp(
 
 // ── Test suites ───────────────────────────────────────────────────────────────
 
-describe('POST /api/v1/auth/signup — idempotency (Req 2.8)', () => {
+describe('POST /v1/auth/signup — idempotency (Req 2.8)', () => {
   let app: INestApplication;
   let mockCachePort: ReturnType<typeof makeMockCachePort>;
 
@@ -312,7 +312,7 @@ describe('POST /api/v1/auth/signup — idempotency (Req 2.8)', () => {
 
     // First call — cache miss, handler executes
     const first = await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
+      .post('/v1/auth/signup')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-idempotency-key', idempotencyKey)
       .send(body)
@@ -323,7 +323,7 @@ describe('POST /api/v1/auth/signup — idempotency (Req 2.8)', () => {
 
     // Second call — cache hit, replayed
     const second = await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
+      .post('/v1/auth/signup')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-idempotency-key', idempotencyKey)
       .send(body)
@@ -337,14 +337,14 @@ describe('POST /api/v1/auth/signup — idempotency (Req 2.8)', () => {
     const body = { email: 'user@example.com', password: 'P@ssw0rd!Secure1' };
 
     const first = await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
+      .post('/v1/auth/signup')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-idempotency-key', randomUUID())
       .send(body)
       .expect(201);
 
     const second = await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
+      .post('/v1/auth/signup')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-idempotency-key', randomUUID())
       .send(body)
@@ -359,7 +359,7 @@ describe('POST /api/v1/auth/signup — idempotency (Req 2.8)', () => {
     const body = { email: 'nokey@example.com', password: 'P@ssw0rd!Secure1' };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/auth/signup')
+      .post('/v1/auth/signup')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send(body)
       .expect(201);
@@ -368,7 +368,7 @@ describe('POST /api/v1/auth/signup — idempotency (Req 2.8)', () => {
   });
 });
 
-describe('POST /api/v1/auth/login — rate limiting (Req 3.10)', () => {
+describe('POST /v1/auth/login — rate limiting (Req 3.10)', () => {
   let app: INestApplication;
   let mockCachePort: ReturnType<typeof makeMockCachePort>;
 
@@ -387,7 +387,7 @@ describe('POST /api/v1/auth/login — rate limiting (Req 3.10)', () => {
     // Send 20 requests — all should succeed (limit is 20/min/IP)
     for (let i = 0; i < 20; i++) {
       await request(app.getHttpServer())
-        .post('/api/v1/auth/login')
+        .post('/v1/auth/login')
         .set('x-tenant-id', TEST_TENANT_ID)
         .set('x-forwarded-for', '10.0.0.1')
         .send(body)
@@ -396,7 +396,7 @@ describe('POST /api/v1/auth/login — rate limiting (Req 3.10)', () => {
 
     // 21st request — should be rate limited
     const res = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
+      .post('/v1/auth/login')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-forwarded-for', '10.0.0.1')
       .send(body)
@@ -414,7 +414,7 @@ describe('POST /api/v1/auth/login — rate limiting (Req 3.10)', () => {
     // Exhaust limit for IP A
     for (let i = 0; i < 20; i++) {
       await request(app.getHttpServer())
-        .post('/api/v1/auth/login')
+        .post('/v1/auth/login')
         .set('x-tenant-id', TEST_TENANT_ID)
         .set('x-forwarded-for', '10.0.0.2')
         .send(body)
@@ -423,7 +423,7 @@ describe('POST /api/v1/auth/login — rate limiting (Req 3.10)', () => {
 
     // IP A is now rate limited
     await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
+      .post('/v1/auth/login')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-forwarded-for', '10.0.0.2')
       .send(body)
@@ -431,7 +431,7 @@ describe('POST /api/v1/auth/login — rate limiting (Req 3.10)', () => {
 
     // IP B still has its own fresh bucket
     await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
+      .post('/v1/auth/login')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-forwarded-for', '10.0.0.3')
       .send(body)
@@ -444,14 +444,14 @@ describe('POST /api/v1/auth/login — rate limiting (Req 3.10)', () => {
     // Exhaust limit
     for (let i = 0; i < 20; i++) {
       await request(app.getHttpServer())
-        .post('/api/v1/auth/login')
+        .post('/v1/auth/login')
         .set('x-tenant-id', TEST_TENANT_ID)
         .set('x-forwarded-for', '10.0.0.4')
         .send(body);
     }
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/auth/login')
+      .post('/v1/auth/login')
       .set('x-tenant-id', TEST_TENANT_ID)
       .set('x-forwarded-for', '10.0.0.4')
       .send(body)
@@ -524,7 +524,7 @@ describe('GET /.well-known/jwks.json — JWKS endpoint (Req 7.6)', () => {
   });
 });
 
-describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)', () => {
+describe('POST /v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)', () => {
   let app: INestApplication;
   let mockCachePort: ReturnType<typeof makeMockCachePort>;
 
@@ -549,7 +549,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
     };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send(body)
       .expect(200);
@@ -573,7 +573,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
     };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send(body)
       .expect(200);
@@ -593,7 +593,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
     };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send(body)
       .expect(200);
@@ -613,7 +613,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
     };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send(body)
       .expect(200);
@@ -628,7 +628,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
     };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send(body)
       .expect(400);
@@ -643,7 +643,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
     };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .send(body)
       .expect(400);
 
@@ -652,7 +652,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
 
   it('returns HTTP 400 when request body is missing required fields', async () => {
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send({ condition: 'subject.role == "admin"' }) // missing context
       .expect(400);
@@ -672,7 +672,7 @@ describe('POST /api/v1/iam/policies/evaluate — dry-run evaluation (Req 9.10)',
     };
 
     const res = await request(app.getHttpServer())
-      .post('/api/v1/iam/policies/evaluate')
+      .post('/v1/iam/policies/evaluate')
       .set('x-tenant-id', TEST_TENANT_ID)
       .send(body)
       .expect(200);

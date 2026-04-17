@@ -155,24 +155,24 @@ function getClientIp(req: AuthRequest): string {
  * Authentication API — all 14 endpoints from Section 17.1.
  *
  * Routes:
- *   POST  /api/v1/auth/signup
- *   POST  /api/v1/auth/login
- *   POST  /api/v1/auth/refresh
- *   POST  /api/v1/auth/logout
- *   POST  /api/v1/auth/logout-all
- *   POST  /api/v1/auth/otp/send
- *   POST  /api/v1/auth/otp/verify
- *   POST  /api/v1/auth/password/change
- *   POST  /api/v1/auth/password/reset/request
- *   POST  /api/v1/auth/password/reset/confirm
- *   GET   /api/v1/auth/oauth/:provider
- *   GET   /api/v1/auth/oauth/:provider/callback
+ *   POST  /v1/auth/signup
+ *   POST  /v1/auth/login
+ *   POST  /v1/auth/refresh
+ *   POST  /v1/auth/logout
+ *   POST  /v1/auth/logout-all
+ *   POST  /v1/auth/otp/send
+ *   POST  /v1/auth/otp/verify
+ *   POST  /v1/auth/password/change
+ *   POST  /v1/auth/password/reset/request
+ *   POST  /v1/auth/password/reset/confirm
+ *   GET   /v1/auth/oauth/:provider
+ *   GET   /v1/auth/oauth/:provider/callback
  *
  * Implements: Req 2, Req 3, Req 4, Req 5, Req 6, Req 7, Req 8
  */
 @ApiTags('Auth')
 @ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('api/v1/auth')
+@Controller('v1/auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
@@ -477,7 +477,7 @@ export class AuthController {
     // Build provider authorization URL (stub — real URLs configured via env)
     const host = req.get?.('host') ?? 'localhost:3000';
     const protocol = req.protocol ?? 'https';
-    const redirectUri = `${protocol}://${host}/api/v1/auth/oauth/${provider}/callback`;
+    const redirectUri = `${protocol}://${host}/v1/auth/oauth/${provider}/callback`;
     const authUrl = this.buildOAuthUrl(provider as OAuthProvider, state, redirectUri);
 
     this.logger.log({ provider, tenantId }, 'OAuth initiation');
@@ -515,7 +515,7 @@ export class AuthController {
 
     const host = req.get?.('host') ?? 'localhost:3000';
     const protocol = req.protocol ?? 'https';
-    const redirectUri = `${protocol}://${host}/api/v1/auth/oauth/${provider}/callback`;
+    const redirectUri = `${protocol}://${host}/v1/auth/oauth/${provider}/callback`;
     const ipHash = hashIp(getClientIp(req));
     const userAgent = (req.headers['user-agent'] as string | undefined) ?? '';
 

@@ -16,7 +16,7 @@ function parseTenantId(raw: string | undefined): string {
 
 @ApiTags('Platform')
 @ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('api/v1/platform')
+@Controller('v1/platform')
 export class PlatformController {
   constructor(
     private readonly manifestService: TenantManifestService,

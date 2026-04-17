@@ -39,7 +39,7 @@ function parseTenantId(raw: string | undefined): string {
 @ApiTags('Core')
 @ApiBearerAuth('bearer')
 @ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('api/v1/core')
+@Controller('v1/core')
 @UseGuards(JwtAuthGuard)
 export class CoreController {
   constructor(

@@ -163,6 +163,30 @@ export class RateLimiterMiddleware implements NestMiddleware {
         windowStart,
       ));
     } else {
+      // WAR-GRADE DEFENSE: Cost Critical / Auth Critical Rate Limits
+      // If Redis is down, we must NOT fail-open or degrade to in-memory loosely on critical routes.
+      // An attacker can drop the Redis pod and instantly bypass the global limits via horizontal scaling.
+      if (rule.tier === 'otp-send' || rule.tier === 'signup' || rule.tier === 'pw-reset') {
+        this.logger.error({ tier: rule.tier }, 'RATE LIMITER FAIL CLOSED: Redis unavailable for critical tier');
+
+        // Strict fail closed
+        res.setHeader('Retry-After', 30);
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Service is temporarily unavailable, please try again later.',
+            retryable: true,
+          },
+          meta: {
+            requestId: (req as any).id ?? '',
+            timestamp: new Date().toISOString(),
+            version: 'v1',
+          },
+        });
+        return;
+      }
+
       // Fallback: in-memory token bucket (per-pod, not distributed — Req 15.2)
       ({ allowed, remaining, resetAt } = this.fallback.consume(
         redisKey,
@@ -186,14 +210,17 @@ export class RateLimiterMiddleware implements NestMiddleware {
       );
 
       res.status(429).json({
+        success: false,
         error: {
           code: 'RATE_LIMIT_EXCEEDED',
           message: 'Too many requests. Please try again later.',
           retryAfter: Math.max(1, retryAfter),
+          retryable: true,
         },
         meta: {
           requestId: (req as any).id ?? '',
           timestamp: new Date().toISOString(),
+          version: 'v1',
         },
       });
       return;
@@ -238,8 +265,8 @@ export class RateLimiterMiddleware implements NestMiddleware {
   }
 
   private normalizePath(path: string): string {
-    if (path.startsWith('/api/v1/')) {
-      return path.replace('/api/v1', '');
+    if (path.startsWith('/v1/')) {
+      return path.replace('/v1', '');
     }
     return path;
   }

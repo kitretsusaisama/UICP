@@ -41,9 +41,9 @@ export class JwksController {
 
     return {
       issuer,
-      authorization_endpoint: `${baseUrl}/api/v1/auth/oauth/authorize`,
-      token_endpoint: `${baseUrl}/api/v1/auth/refresh`,
-      userinfo_endpoint: `${baseUrl}/api/v1/core/me`,
+      authorization_endpoint: `${baseUrl}/v1/auth/oauth/authorize`,
+      token_endpoint: `${baseUrl}/v1/auth/refresh`,
+      userinfo_endpoint: `${baseUrl}/v1/core/me`,
       jwks_uri: `${baseUrl}/.well-known/jwks.json`,
       response_types_supported: ['code'],
       subject_types_supported: ['public'],

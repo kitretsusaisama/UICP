@@ -22,7 +22,7 @@ function parseTenantId(raw: string | undefined): string {
 
 @ApiTags('Extensions')
 @ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('api/v1/extensions')
+@Controller('v1/extensions')
 export class ExtensionController {
   constructor(
     private readonly manifestService: TenantManifestService,
