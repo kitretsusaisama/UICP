@@ -8,9 +8,6 @@ import { TenantId } from '../../domain/value-objects/tenant-id.vo';
 import { INJECTION_TOKENS } from '../ports/injection-tokens';
 import { ITokenRepository } from '../ports/driven/i-token.repository';
 
-/**
- * Access token JWT payload (Section 8.1).
- */
 export interface AccessTokenPayload {
   iss: string;
   aud: string | string[];
@@ -35,9 +32,6 @@ export interface AccessTokenPayload {
   dfp?: string;
 }
 
-/**
- * Refresh token JWT payload (Section 8.2).
- */
 export interface RefreshTokenPayload {
   iss: string;
   aud: string;
@@ -62,17 +56,6 @@ export interface MintedTokens {
   refreshExpiresAt: Date;
 }
 
-/**
- * Application service — JWT token lifecycle management.
- *
- * Implements:
- *   - Req 7.1: RS256 access token with 15-min TTL, embedded roles/perms/mfa/amr
- *   - Req 7.2: RS256 refresh token with 7-day TTL and fid claim
- *   - Req 7.3: token rotation (parse + re-mint)
- *   - Req 7.5: blocklist via ITokenRepository
- *   - Req 7.7: validate access token (signature + exp + iss/aud + blocklist)
- *   - Req 7.8/7.9: key rotation support via kid header
- */
 @Injectable()
 export class TokenService {
   private readonly logger = new Logger(TokenService.name);
@@ -90,20 +73,13 @@ export class TokenService {
     @Inject(INJECTION_TOKENS.TOKEN_REPOSITORY)
     private readonly tokenRepo: ITokenRepository,
   ) {
-    // WAR-GRADE DEFENSE: Phase 6 Security Hard Reset (Secrets Management)
-    // The private key must not reside in memory during normal operations.
-    // In a real environment, JWT signing must be delegated to a KMS (e.g. AWS KMS, Vault).
-    // Here we simulate an isolated KMS boundary by enforcing the API contract.
     const rawKey = this.config.get<string>('JWT_PRIVATE_KEY');
     const encKey = this.config.get<string>('JWT_PRIVATE_KEY_ENC');
     if (!rawKey && !encKey) {
       throw new Error('JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_ENC must be set');
     }
 
-    // Retained strictly to conform to the existing local jsonwebtoken sign logic constraint in this mock.
-    // In a fully rewritten Rust edge auth, this class only dispatches `SignRequest` to the KMS port.
     this.privateKey = (rawKey ?? encKey!).replace(/\\n/g, '\n');
-
     this.publicKey = this.config.getOrThrow<string>('JWT_PUBLIC_KEY').replace(/\\n/g, '\n');
     this.kid = this.config.getOrThrow<string>('JWT_KID');
     this.issuer = this.config.getOrThrow<string>('JWT_ISSUER');
@@ -112,10 +88,7 @@ export class TokenService {
     this.refreshTtlS = this.config.get<number>('JWT_REFRESH_TOKEN_TTL_S', 604800);
   }
 
-  // KMS Sign abstraction layer for War-Grade security
   private async kmsSign(payload: object, kid: string): Promise<string> {
-    // Simulated remote KMS call.
-    // In production: await awsKmsClient.sign({ Message: payload, KeyId: kid, SigningAlgorithm: 'RSASSA_PKCS1_V1_5_SHA_256' });
     return jwt.sign(payload, this.privateKey, {
       algorithm: 'RS256',
       keyid: kid,
@@ -123,11 +96,6 @@ export class TokenService {
     });
   }
 
-  /**
-   * Mint an RS256 access token for a user + session pair.
-   * Embeds roles, perms, mfa, and amr claims so downstream services can
-   * authorize without a DB call (Req 7.1).
-   */
   async mintAccessToken(input: {
     principalId: string;
     tenantId: string;
@@ -173,14 +141,9 @@ export class TokenService {
     };
 
     const token = await this.kmsSign(payload, this.kid);
-
     return { token, jti, expiresAt };
   }
 
-  /**
-   * Mint an RS256 refresh token.
-   * Carries a family ID (fid) for reuse-detection revocation (Req 7.2).
-   */
   async mintRefreshToken(
     userId: UserId,
     tenantId: TenantId,
@@ -207,16 +170,30 @@ export class TokenService {
     };
 
     const token = await this.kmsSign(payload, this.kid);
-
     return { token, jti, expiresAt };
   }
 
-  /**
-   * Parse and verify a refresh token.
-   * Validates RS256 signature, exp, iss, aud, and type claim.
-   *
-   * @throws JsonWebTokenError on invalid signature or expired token.
-   */
+  async mintIdToken(payload: {
+    sub: string;
+    aud: string;
+    nonce?: string;
+    auth_time: number;
+    acr: string;
+  }): Promise<{ token: string; expiresAt: Date }> {
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = new Date((now + this.accessTtlS) * 1000);
+
+    const fullPayload = {
+      iss: this.issuer,
+      iat: now,
+      exp: now + this.accessTtlS,
+      ...payload,
+    };
+
+    const token = await this.kmsSign(fullPayload, this.kid);
+    return { token, expiresAt };
+  }
+
   parseRefreshToken(token: string): RefreshTokenPayload {
     const payload = jwt.verify(token, this.publicKey, {
       algorithms: ['RS256'],
@@ -231,13 +208,6 @@ export class TokenService {
     return payload;
   }
 
-  /**
-   * Parse and verify an access token.
-   * Validates RS256 signature, exp, iss, aud, and type claim.
-   * Does NOT check the blocklist — callers must do that separately (Req 7.7).
-   *
-   * @throws JsonWebTokenError on invalid signature or expired token.
-   */
   parseAccessToken(token: string): AccessTokenPayload {
     const payload = jwt.verify(token, this.publicKey, {
       algorithms: ['RS256'],
@@ -252,32 +222,16 @@ export class TokenService {
     return payload;
   }
 
-  /**
-   * Validate an access token fully: signature + exp + iss/aud + blocklist check.
-   * Zero DB round trips — blocklist is O(1) Redis ZSCORE (Req 7.7).
-   *
-   * Returns the parsed payload when valid, throws otherwise.
-   */
   async validateAccessToken(token: string): Promise<AccessTokenPayload> {
     const payload = this.parseAccessToken(token);
-
     const blocklisted = await this.tokenRepo.isBlocklisted(payload.jti);
     if (blocklisted) {
       throw new Error('TOKEN_BLOCKLISTED: access token has been revoked');
     }
-
     return payload;
   }
 
-  /**
-   * Rotate a signing key: begin signing new tokens with the new key.
-   * The old key remains in the JWKS endpoint for the overlap window (Req 7.8/7.9).
-   *
-   * In practice this updates the in-memory key reference; the actual key
-   * persistence is handled by the RotateKeysHandler command.
-   */
   rotateSigningKey(newPrivateKey: string, newPublicKey: string, newKid: string): void {
-    // Retain old key for 7-day overlap window (Req 7.8)
     const overlapWindowMs = 7 * 24 * 60 * 60 * 1000;
     this._deprecatedKeys.push({
       publicKey: this.publicKey,
@@ -299,10 +253,6 @@ export class TokenService {
     return this.kid;
   }
 
-  /**
-   * Return deprecated public keys still within the 7-day overlap window (Req 7.8).
-   * Keys are added here by rotateSigningKey and expire after 7 days.
-   */
   getDeprecatedPublicKeys(): Array<{ publicKey: string; kid: string }> {
     return this._deprecatedKeys.filter(
       (k) => k.expiresAt > new Date(),

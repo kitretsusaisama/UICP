@@ -69,6 +69,26 @@ const ROUTE_RULES: Array<{ method: string; pathPrefix: string; rule: RateLimitRu
     pathPrefix: '/auth/logout',
     rule: { tier: 'logout', limit: 100, windowSeconds: 60, keyType: 'user' },
   },
+  {
+    method: 'GET',
+    pathPrefix: '/oauth2/authorize',
+    rule: { tier: 'oauth-authorize', limit: 50, windowSeconds: 60, keyType: 'user' },
+  },
+  {
+    method: 'POST',
+    pathPrefix: '/oauth2/token',
+    rule: { tier: 'oauth-token', limit: 10, windowSeconds: 60, keyType: 'ip' },
+  },
+  {
+    method: 'GET',
+    pathPrefix: '/oauth2/userinfo',
+    rule: { tier: 'oauth-userinfo', limit: 100, windowSeconds: 60, keyType: 'user' },
+  },
+  {
+    method: 'GET',
+    pathPrefix: '/oauth2/callback',
+    rule: { tier: 'oauth-callback', limit: 5, windowSeconds: 60, keyType: 'ip' },
+  },
 ];
 
 // ── In-memory token bucket (fallback when Redis is unavailable) ───────────────

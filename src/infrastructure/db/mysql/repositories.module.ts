@@ -13,6 +13,17 @@ import { MysqlProviderRoutingRepository } from './mysql-provider-routing.reposit
 import { MysqlRuntimeIdentityRepository } from './mysql-runtime-identity.repository';
 import { MysqlExtensionBindingRepository } from './mysql-extension-binding.repository';
 
+// Platform Repositories
+import { MysqlAppRepository } from './repositories/platform/mysql-app.repository';
+import { MysqlAppSecretRepository } from './repositories/platform/mysql-app-secret.repository';
+import { MysqlDomainRepository } from './repositories/platform/mysql-domain.repository';
+import { MysqlWebhookRepository } from './repositories/platform/mysql-webhook.repository';
+
+import { APP_REPOSITORY } from '../../../domain/repositories/platform/app.repository.interface';
+import { APP_SECRET_REPOSITORY } from '../../../domain/repositories/platform/app-secret.repository.interface';
+import { DOMAIN_REPOSITORY } from '../../../domain/repositories/platform/domain.repository.interface';
+import { WEBHOOK_REPOSITORY } from '../../../domain/repositories/platform/webhook.repository.interface';
+
 @Global()
 @Module({
   providers: [
@@ -28,6 +39,12 @@ import { MysqlExtensionBindingRepository } from './mysql-extension-binding.repos
     { provide: INJECTION_TOKENS.PROVIDER_ROUTING_REPOSITORY, useClass: MysqlProviderRoutingRepository },
     { provide: INJECTION_TOKENS.RUNTIME_IDENTITY_REPOSITORY, useClass: MysqlRuntimeIdentityRepository },
     { provide: INJECTION_TOKENS.EXTENSION_BINDING_REPOSITORY, useClass: MysqlExtensionBindingRepository },
+
+    // Platform
+    { provide: APP_REPOSITORY, useClass: MysqlAppRepository },
+    { provide: APP_SECRET_REPOSITORY, useClass: MysqlAppSecretRepository },
+    { provide: DOMAIN_REPOSITORY, useClass: MysqlDomainRepository },
+    { provide: WEBHOOK_REPOSITORY, useClass: MysqlWebhookRepository },
   ],
   exports: [
     INJECTION_TOKENS.USER_REPOSITORY,
@@ -42,6 +59,11 @@ import { MysqlExtensionBindingRepository } from './mysql-extension-binding.repos
     INJECTION_TOKENS.PROVIDER_ROUTING_REPOSITORY,
     INJECTION_TOKENS.RUNTIME_IDENTITY_REPOSITORY,
     INJECTION_TOKENS.EXTENSION_BINDING_REPOSITORY,
+
+    APP_REPOSITORY,
+    APP_SECRET_REPOSITORY,
+    DOMAIN_REPOSITORY,
+    WEBHOOK_REPOSITORY,
   ],
 })
 export class RepositoriesModule {}

@@ -12,6 +12,13 @@ import { DynamicModuleController } from './controllers/dynamic-module.controller
 import { ExtensionController } from './controllers/extension.controller';
 import { CoreController } from './controllers/core.controller';
 
+// New Platform Controllers
+import { AppController } from './controllers/platform/app.controller';
+import { AppSecretController } from './controllers/platform/app-secret.controller';
+import { DomainController } from './controllers/platform/domain.controller';
+import { WebhookController } from './controllers/platform/webhook.controller';
+import { OAuthController } from './controllers/platform/oauth.controller';
+
 // Guards, interceptors, filters, pipes
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { IdempotencyInterceptor } from './interceptors/idempotency.interceptor';
@@ -19,9 +26,6 @@ import { ResponseEnvelopeInterceptor } from './interceptors/response-envelope.in
 import { ClsContextInterceptor } from './interceptors/cls-context.interceptor';
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { RateLimiterMiddleware } from './middleware/rate-limiter.middleware';
-
-// ABAC policy engine — moved to ApplicationModule
-// import { AbacPolicyEngine } from '../../application/services/abac/abac-policy-engine';
 
 @Module({
   imports: [ApplicationModule],
@@ -34,6 +38,11 @@ import { RateLimiterMiddleware } from './middleware/rate-limiter.middleware';
     PlatformController,
     DynamicModuleController,
     ExtensionController,
+    AppController,
+    AppSecretController,
+    DomainController,
+    WebhookController,
+    OAuthController,
   ],
   providers: [
     JwtAuthGuard,

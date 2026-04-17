@@ -18,6 +18,13 @@ import { IdempotencyService } from './services/idempotency.service';
 import { RuntimeIdentityService } from './services/runtime-identity.service';
 import { RuntimeAuthorizationService } from './services/runtime-authorization.service';
 
+// Platform Services
+import { AppService } from './services/platform/app.service';
+import { AppSecretService } from './services/platform/app-secret.service';
+import { DomainService } from './services/platform/domain.service';
+import { WebhookService } from './services/platform/webhook.service';
+import { OAuthService } from './services/platform/oauth.service';
+
 // Command handlers
 import { SignupEmailHandler } from './commands/signup-email/signup-email.handler';
 import { SignupPhoneHandler } from './commands/signup-phone/signup-phone.handler';
@@ -63,6 +70,11 @@ const SERVICES = [
   ProviderRoutingService,
   ExtensionDispatcherService,
   DynamicCommandRegistryService,
+  AppService,
+  AppSecretService,
+  DomainService,
+  WebhookService,
+  OAuthService,
 ];
 
 const COMMAND_HANDLERS = [
