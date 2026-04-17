@@ -99,6 +99,10 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(1).max(128),
 });
 
+const introspectTokenSchema = z.object({
+  token: z.string().min(1),
+});
+
 const passwordResetRequestSchema = z.object({
   identity: z.string().min(1).max(320),
   identityType: z.enum(['EMAIL', 'PHONE']).optional(),
@@ -456,6 +460,43 @@ export class AuthController {
       new PasswordResetConfirmCommand(tenantId, body.resetToken, body.newPassword),
     );
     return { data: result };
+  }
+
+  // ── POST /auth/oauth2/introspect ─────────────────────────────────────────
+
+  @Post('oauth2/introspect')
+  @HttpCode(HttpStatus.OK)
+  async introspectToken(
+    @Headers('x-tenant-id') rawTenantId: string,
+    @Body(new ZodValidationPipe(introspectTokenSchema)) body: z.infer<typeof introspectTokenSchema>,
+  ) {
+    const tenantId = parseTenantId(rawTenantId);
+    try {
+      const payload = await this.tokenService.validateAccessToken(body.token);
+      if (payload.tid !== tenantId) {
+        return { data: { active: false } };
+      }
+      return {
+        data: {
+          active: true,
+          sub: payload.sub,
+          aud: payload.aud,
+          iss: payload.iss,
+          exp: payload.exp,
+          iat: payload.iat,
+          scope: payload.capabilities ?? payload.perms ?? [],
+          roles: payload.roles ?? [],
+          client_id: 'uicp',
+          jti: payload.jti,
+          acr: payload.acr,
+          amr: payload.amr
+        }
+      };
+    } catch (err) {
+      // Introspection endpoint should not throw 401s for invalid tokens,
+      // it simply returns `{ active: false }` per RFC 7662.
+      return { data: { active: false } };
+    }
   }
 
   // ── GET /auth/oauth/:provider ──────────────────────────────────────────────
