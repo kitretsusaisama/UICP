@@ -99,10 +99,7 @@ export class RefreshTokenHandler {
         throw new DomainException(DomainErrorCode.REFRESH_TOKEN_REUSE, 'Refresh token reuse detected');
       }
 
-      // 6. Revoke current token
-      await this.tokenRepo.revokeToken(jti, tenantId);
-
-      // 7. Load user
+      // 6. Load user
       const user = await this.userRepo.findById(userIdVo, tenantId);
       if (!user) {
         throw new DomainException(DomainErrorCode.INVALID_CREDENTIALS, 'User not found');
@@ -110,7 +107,7 @@ export class RefreshTokenHandler {
 
       const runtimeIdentity = await this.runtimeIdentityService.ensureForLegacyUser(user, 'member');
 
-      // 8. Load session
+      // 7. Load session
       let session = sessionId
         ? await this.sessionService.findById(SessionId.from(sessionId), tenantId)
         : null;
@@ -130,7 +127,7 @@ export class RefreshTokenHandler {
         });
       }
 
-      // 9. Mint new tokens with same family ID
+      // 8. Mint new tokens with same family ID
       const capabilities = [
         'identity.session.read',
         'identity.session.revoke',
@@ -152,20 +149,21 @@ export class RefreshTokenHandler {
         policyVersion: 'legacy-policy-v1',
         manifestVersion: 'legacy-manifest-v1',
       });
-      const { token: refreshToken, jti: newJti, expiresAt: newExpiresAt } = await
-        await this.tokenService.mintRefreshToken(
-          userIdVo,
-          tenantId,
-          familyId,
-          membershipIdFromToken ?? runtimeIdentity.membershipId,
-          session.id.toString(),
-        );
+
+      const { token: refreshToken, jti: newJti, expiresAt: newExpiresAt } = await this.tokenService.mintRefreshToken(
+        userIdVo,
+        tenantId,
+        familyId,
+        membershipIdFromToken ?? runtimeIdentity.membershipId,
+        session.id.toString(),
+      );
 
       this.metrics?.increment('uicp_token_minted_total', { tenant_id: cmd.tenantId, type: 'access' });
       this.metrics?.increment('uicp_token_minted_total', { tenant_id: cmd.tenantId, type: 'refresh' });
 
-      // 10. Save new refresh token
-      await this.tokenRepo.saveRefreshToken({
+      // 9. Atomically rotate the refresh token (revoke old, save new in one transaction)
+      // WAR-GRADE DEFENSE: Phase 14 Fix Refresh Token Database Atomicity Flaw
+      await this.tokenRepo.rotateRefreshToken(jti, tenantId, {
         jti: newJti,
         familyId,
         userId: principalId,

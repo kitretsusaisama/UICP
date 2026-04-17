@@ -39,6 +39,11 @@ class InMemoryTokenRepository implements ITokenRepository {
     }
   }
 
+  async rotateRefreshToken(oldJti: string, tenantId: TenantId, newRecord: RefreshTokenRecord): Promise<void> {
+    await this.revokeToken(oldJti, tenantId);
+    await this.saveRefreshToken(newRecord);
+  }
+
   async revokeFamily(familyId: string, _tenantId: TenantId): Promise<void> {
     for (const [jti, record] of this.tokens) {
       if (record.familyId === familyId && !record.revoked) {

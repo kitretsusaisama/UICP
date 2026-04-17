@@ -40,6 +40,12 @@ export interface ITokenRepository {
   revokeToken(jti: string, tenantId: TenantId): Promise<void>;
 
   /**
+   * Atomically rotate a refresh token: revoke the old one and save the new one in a single transaction.
+   * Prevents edge cases where a crash between revoking and saving leaves the user permanently logged out.
+   */
+  rotateRefreshToken(oldJti: string, tenantId: TenantId, newRecord: RefreshTokenRecord): Promise<void>;
+
+  /**
    * Revoke all refresh tokens in a token family (reuse-detection response).
    */
   revokeFamily(familyId: string, tenantId: TenantId): Promise<void>;
