@@ -25,6 +25,10 @@ import { DomainService } from './services/platform/domain.service';
 import { WebhookService } from './services/platform/webhook.service';
 import { OAuthService } from './services/platform/oauth.service';
 
+// Governance Services
+import { RoleService } from './services/governance/role.service';
+import { PolicyService } from './services/governance/policy.service';
+
 // Command handlers
 import { SignupEmailHandler } from './commands/signup-email/signup-email.handler';
 import { SignupPhoneHandler } from './commands/signup-phone/signup-phone.handler';
@@ -75,6 +79,8 @@ const SERVICES = [
   DomainService,
   WebhookService,
   OAuthService,
+  RoleService,
+  PolicyService,
 ];
 
 const COMMAND_HANDLERS = [

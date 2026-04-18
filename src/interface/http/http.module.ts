@@ -19,6 +19,10 @@ import { DomainController } from './controllers/platform/domain.controller';
 import { WebhookController } from './controllers/platform/webhook.controller';
 import { OAuthController } from './controllers/platform/oauth.controller';
 
+// New Governance Controllers
+import { RoleController } from './controllers/governance/role.controller';
+import { PolicyController } from './controllers/governance/policy.controller';
+
 // Guards, interceptors, filters, pipes
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { IdempotencyInterceptor } from './interceptors/idempotency.interceptor';
@@ -43,6 +47,8 @@ import { RateLimiterMiddleware } from './middleware/rate-limiter.middleware';
     DomainController,
     WebhookController,
     OAuthController,
+    RoleController,
+    PolicyController,
   ],
   providers: [
     JwtAuthGuard,

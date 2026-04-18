@@ -19,10 +19,19 @@ import { MysqlAppSecretRepository } from './repositories/platform/mysql-app-secr
 import { MysqlDomainRepository } from './repositories/platform/mysql-domain.repository';
 import { MysqlWebhookRepository } from './repositories/platform/mysql-webhook.repository';
 
+// Governance Repositories
+import { MysqlRoleRepository } from './repositories/governance/mysql-role.repository';
+import { MysqlRoleAssignmentRepository } from './repositories/governance/mysql-role-assignment.repository';
+import { MysqlPolicyRepository } from './repositories/governance/mysql-policy.repository';
+
 import { APP_REPOSITORY } from '../../../domain/repositories/platform/app.repository.interface';
 import { APP_SECRET_REPOSITORY } from '../../../domain/repositories/platform/app-secret.repository.interface';
 import { DOMAIN_REPOSITORY } from '../../../domain/repositories/platform/domain.repository.interface';
 import { WEBHOOK_REPOSITORY } from '../../../domain/repositories/platform/webhook.repository.interface';
+
+import { ROLE_REPOSITORY } from '../../../domain/repositories/governance/role.repository.interface';
+import { ROLE_ASSIGNMENT_REPOSITORY } from '../../../domain/repositories/governance/role-assignment.repository.interface';
+import { POLICY_REPOSITORY } from '../../../domain/repositories/governance/policy.repository.interface';
 
 @Global()
 @Module({
@@ -45,6 +54,11 @@ import { WEBHOOK_REPOSITORY } from '../../../domain/repositories/platform/webhoo
     { provide: APP_SECRET_REPOSITORY, useClass: MysqlAppSecretRepository },
     { provide: DOMAIN_REPOSITORY, useClass: MysqlDomainRepository },
     { provide: WEBHOOK_REPOSITORY, useClass: MysqlWebhookRepository },
+
+    // Governance
+    { provide: ROLE_REPOSITORY, useClass: MysqlRoleRepository },
+    { provide: ROLE_ASSIGNMENT_REPOSITORY, useClass: MysqlRoleAssignmentRepository },
+    { provide: POLICY_REPOSITORY, useClass: MysqlPolicyRepository },
   ],
   exports: [
     INJECTION_TOKENS.USER_REPOSITORY,
@@ -64,6 +78,10 @@ import { WEBHOOK_REPOSITORY } from '../../../domain/repositories/platform/webhoo
     APP_SECRET_REPOSITORY,
     DOMAIN_REPOSITORY,
     WEBHOOK_REPOSITORY,
+
+    ROLE_REPOSITORY,
+    ROLE_ASSIGNMENT_REPOSITORY,
+    POLICY_REPOSITORY,
   ],
 })
 export class RepositoriesModule {}

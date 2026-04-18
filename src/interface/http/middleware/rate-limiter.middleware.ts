@@ -70,24 +70,24 @@ const ROUTE_RULES: Array<{ method: string; pathPrefix: string; rule: RateLimitRu
     rule: { tier: 'logout', limit: 100, windowSeconds: 60, keyType: 'user' },
   },
   {
-    method: 'GET',
-    pathPrefix: '/oauth2/authorize',
-    rule: { tier: 'oauth-authorize', limit: 50, windowSeconds: 60, keyType: 'user' },
+    method: 'POST',
+    pathPrefix: '/roles',
+    rule: { tier: 'roles-create', limit: 20, windowSeconds: 60, keyType: 'user' },
   },
   {
     method: 'POST',
-    pathPrefix: '/oauth2/token',
-    rule: { tier: 'oauth-token', limit: 10, windowSeconds: 60, keyType: 'ip' },
+    pathPrefix: '/roles/assign',
+    rule: { tier: 'roles-assign', limit: 50, windowSeconds: 60, keyType: 'user' },
   },
   {
-    method: 'GET',
-    pathPrefix: '/oauth2/userinfo',
-    rule: { tier: 'oauth-userinfo', limit: 100, windowSeconds: 60, keyType: 'user' },
+    method: 'POST',
+    pathPrefix: '/policies',
+    rule: { tier: 'policies-create', limit: 20, windowSeconds: 60, keyType: 'user' },
   },
   {
-    method: 'GET',
-    pathPrefix: '/oauth2/callback',
-    rule: { tier: 'oauth-callback', limit: 5, windowSeconds: 60, keyType: 'ip' },
+    method: 'POST',
+    pathPrefix: '/policies/',
+    rule: { tier: 'policies-test', limit: 100, windowSeconds: 60, keyType: 'user' },
   },
 ];
 

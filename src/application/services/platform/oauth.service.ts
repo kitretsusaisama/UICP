@@ -260,14 +260,11 @@ export class OAuthService {
       throw new UnauthorizedException('Provider email is not verified, treating as untrusted');
     }
 
-    // Hash the incoming email to search existing identities (O(1))
     const emailHash = await this.encryption.hmac(email, 'IDENTITY_VALUE');
 
     const existingIdentity = await this.identityRepo.findByHash(emailHash, 'EMAIL', TenantId.from(tenantId));
 
     if (existingIdentity) {
-      // CASE 3: Email already used by different account -> COLLISION POLICY
-      // Require manual verification instead of auto-merge
       return {
         userId: existingIdentity.userId.toString(),
         action: 'verification_required',
