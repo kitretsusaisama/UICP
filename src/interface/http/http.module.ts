@@ -12,16 +12,21 @@ import { DynamicModuleController } from './controllers/dynamic-module.controller
 import { ExtensionController } from './controllers/extension.controller';
 import { CoreController } from './controllers/core.controller';
 
-// New Platform Controllers
+// Platform Controllers
 import { AppController } from './controllers/platform/app.controller';
 import { AppSecretController } from './controllers/platform/app-secret.controller';
 import { DomainController } from './controllers/platform/domain.controller';
 import { WebhookController } from './controllers/platform/webhook.controller';
 import { OAuthController } from './controllers/platform/oauth.controller';
 
-// New Governance Controllers
+// Governance Controllers
 import { RoleController } from './controllers/governance/role.controller';
 import { PolicyController } from './controllers/governance/policy.controller';
+
+// Admin / SOC Controllers
+import { AdminUserController } from './controllers/admin/admin-user.controller';
+import { AuditController } from './controllers/admin/audit.controller';
+import { SocController } from './controllers/soc/soc.controller';
 
 // Guards, interceptors, filters, pipes
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -49,6 +54,9 @@ import { RateLimiterMiddleware } from './middleware/rate-limiter.middleware';
     OAuthController,
     RoleController,
     PolicyController,
+    AdminUserController,
+    AuditController,
+    SocController,
   ],
   providers: [
     JwtAuthGuard,

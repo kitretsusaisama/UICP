@@ -1,72 +1,46 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker, Job } from 'bullmq';
-import { createHmac, randomUUID } from 'crypto';
-import { MYSQL_POOL, DbPool } from '../../db/mysql/mysql.module';
+import { randomUUID, createHash } from 'crypto';
+import { IAuditLogRepository } from '../../../domain/repositories/audit-log.repository.interface';
+import { AuditLog } from '../../../domain/entities/audit-log.entity';
+import { INJECTION_TOKENS } from '../../../application/ports/injection-tokens';
 import { QUEUE_CONCURRENCY, QUEUE_NAMES } from '../bullmq-queue.adapter';
+import { IMetricsPort } from '../../../application/ports/driven/i-metrics.port';
+import { TenantId } from '../../../domain/value-objects/tenant-id.vo';
 
-export interface AuditWriteJobPayload {
-  tenantId: string;
-  actorId?: string;
-  actorType: 'user' | 'system' | 'admin';
-  action: string;
-  resourceType: string;
-  resourceId?: string;
-  /** Already-encrypted metadata (base64 encoded). */
-  metadataEnc?: string;
-  metadataEncKid?: string;
-  ipHash?: string;
-}
-
-/**
- * BullMQ worker for the `audit-write` queue.
- *
- * - Concurrency: 20 (Section 11.2 bulkhead — high throughput, low priority)
- * - Writes audit log entries to `audit_logs` table with HMAC-SHA256 checksum.
- * - Audit logs are INSERT-only (immutable) — Req 12.1.
- * - HMAC checksum computed over immutable fields for tamper detection — Req 12.10.
- *
- * Implements: Req 12.1, Req 12.10, Req 4.5
- */
 @Injectable()
 export class AuditWriteWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditWriteWorker.name);
   private worker!: Worker;
 
-  private readonly connection: { host: string; port: number; password?: string; tls?: object };
-
-  /** HMAC key for audit log checksum — loaded from env. */
-  private readonly hmacKey: string;
-
   constructor(
-    @Inject(MYSQL_POOL) private readonly pool: DbPool,
+    @Inject(INJECTION_TOKENS.AUDIT_LOG_REPOSITORY)
+    private readonly auditRepo: IAuditLogRepository,
     private readonly config: ConfigService,
-  ) {
-    this.connection = {
+    @Optional() @Inject(INJECTION_TOKENS.METRICS_PORT) private readonly metrics?: IMetricsPort,
+  ) {}
+
+  onModuleInit(): void {
+    const connection = {
       host: this.config.get<string>('REDIS_HOST') ?? 'localhost',
       port: this.config.get<number>('REDIS_PORT') ?? 6379,
       password: this.config.get<string>('REDIS_PASSWORD'),
       tls: this.config.get<string>('REDIS_TLS') === 'true' ? {} : undefined,
     };
-    this.hmacKey = this.config.get<string>('AUDIT_HMAC_KEY') ?? 'default-audit-hmac-key';
-  }
 
-  onModuleInit(): void {
     this.worker = new Worker(
       QUEUE_NAMES.AUDIT_WRITE,
-      async (job: Job<AuditWriteJobPayload>) => this.process(job),
+      async (job: Job) => this.process(job),
       {
-        connection: this.connection,
+        connection,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAMES.AUDIT_WRITE],
       },
     );
 
-    this.worker.on('completed', (job) => {
-      this.logger.debug({ jobId: job.id }, 'Audit write job completed');
-    });
-
     this.worker.on('failed', (job, err) => {
       this.logger.error({ jobId: job?.id, err }, 'Audit write job failed');
+      this.metrics?.increment('uicp_audit_write_failures_total');
     });
 
     this.logger.log(`AuditWriteWorker started (concurrency=${QUEUE_CONCURRENCY[QUEUE_NAMES.AUDIT_WRITE]})`);
@@ -77,86 +51,39 @@ export class AuditWriteWorker implements OnModuleInit, OnModuleDestroy {
     this.logger.log('AuditWriteWorker stopped');
   }
 
-  // ── Job Processor ──────────────────────────────────────────────────────────
+  private async process(job: Job): Promise<void> {
+    const start = Date.now();
+    const event = job.data;
 
-  private async process(job: Job<AuditWriteJobPayload>): Promise<void> {
-    const {
-      tenantId,
-      actorId,
-      actorType,
-      action,
-      resourceType,
-      resourceId,
-      metadataEnc,
-      metadataEncKid,
-      ipHash,
-    } = job.data;
+    // Hash Chain Logic (Req 10.3)
+    // hash_n = SHA256(prev_hash + event_data)
 
-    const id = randomUUID().replace(/-/g, '');
-    const createdAt = new Date();
+    const latestLog = await this.auditRepo.getLatestLog(event.tenantId);
+    const prevHash = latestLog ? latestLog.hash : null;
 
-    // WAR-GRADE DEFENSE: Phase 1.4 Refactor Audit Logs
-    // Writing unbounded logs to a mutable MySQL DB with an app-side HMAC is theatre, not security.
-    // An attacker exploiting RCE will have the HMAC key and full DB access.
-    // Instead, we will simulate pushing the log directly to an append-only S3/Kinesis stream
-    // or stdout where an out-of-band agent (e.g. FluentBit) picks it up for SIEM ingestion.
+    // Canonicalization (sorted keys to avoid whitespace variance)
+    const canonicalEvent = JSON.stringify(event, Object.keys(event).sort());
 
-    // Format as a strictly typed JSON log string suitable for fluentd/kafka
-    const auditRecord = {
-      _audit_id: id,
-      _timestamp: createdAt.toISOString(),
-      tenantId,
-      actorId: actorId ?? null,
-      actorType,
-      action,
-      resourceType,
-      resourceId: resourceId ?? null,
-      metadataEnc: metadataEnc ?? null,
-      metadataEncKid: metadataEncKid ?? null,
-      ipHash: ipHash ?? null,
-    };
+    const hashInput = (prevHash || '') + canonicalEvent;
+    const hash = createHash('sha256').update(hashInput).digest('hex');
 
-    // Note: We bypass the DB write entirely here.
-    // In a real environment, this goes to Kafka or a dedicated WORM (Write-Once-Read-Many) storage.
-    this.logger.log({ auditRecord }, 'AUDIT_EMIT: Forwarding to append-only immutable ledger');
+    const auditLog = new AuditLog({
+      id: randomUUID(),
+      tenantId: event.tenantId,
+      actorId: event.payload?.userId ?? event.aggregateId, // Best effort from outbox shape
+      action: event.eventType,
+      targetType: event.aggregateType,
+      targetId: event.aggregateId,
+      metadata: event.payload ?? {},
+      hash,
+      prevHash,
+      createdAt: new Date(event.createdAt),
+    });
 
-    // We still write to DB so the current application query routes (`users/me/audit-logs`) don't break
-    // but the system of record is the log stream above.
-    const checksumInput = [
-      id,
-      tenantId,
-      actorId ?? '',
-      actorType,
-      action,
-      resourceType,
-      resourceId ?? '',
-      createdAt.toISOString(),
-    ].join('|');
+    await this.auditRepo.save(auditLog);
 
-    const checksum = createHmac('sha256', this.hmacKey).update(checksumInput).digest();
-
-    await this.pool.execute(
-      `INSERT INTO audit_logs
-         (id, tenant_id, actor_id, actor_type, action, resource_type, resource_id,
-          metadata_enc, metadata_enc_kid, ip_hash, checksum, created_at)
-       VALUES
-         (UNHEX(?), UNHEX(?), UNHEX(?), ?, ?, ?, UNHEX(?), ?, ?, UNHEX(?), ?, ?)`,
-      [
-        id,
-        tenantId.replace(/-/g, ''),
-        actorId ? actorId.replace(/-/g, '') : null,
-        actorType,
-        action,
-        resourceType,
-        resourceId ? resourceId.replace(/-/g, '') : null,
-        metadataEnc ?? null,
-        metadataEncKid ?? null,
-        ipHash ?? null,
-        checksum,
-        createdAt,
-      ],
-    );
-
-    this.logger.debug({ jobId: job.id, action, resourceType }, 'Audit log dual-written to DB cache');
+    const elapsed = Date.now() - start;
+    this.metrics?.histogram('uicp_audit_write_duration_ms', elapsed);
+    this.metrics?.increment('uicp_audit_events_written_total');
   }
 }
