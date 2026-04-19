@@ -1,3 +1,5 @@
+import { SessionService } from '../../application/services/session.service';
+import { CoreController } from './controllers/core.controller';
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { ApplicationModule } from '../../application/application.module';
@@ -42,7 +44,7 @@ import { RateLimiterMiddleware } from './middleware/rate-limiter.middleware';
     AuthController,
     AdminController,
     JwksController,
-    IamController,
+    IamController, SessionService,
     CoreController,
     PlatformController,
     DynamicModuleController,
