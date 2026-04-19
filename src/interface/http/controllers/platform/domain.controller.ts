@@ -1,4 +1,6 @@
-import { Controller, Post, Get, Param, Body, UseGuards, Req } from '@nestjs/common';
+import { Governance } from '../../../../src/infrastructure/governance/decorators/governance.decorator';
+import { GovernanceGuard } from '../../../../src/infrastructure/governance/guards/governance.guard';
+import { Controller, Post, Get, Param, Body, UseGuards, Req, UseGuards } from '@nestjs/common';
 import { DomainService } from '../../../../application/services/platform/domain.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';

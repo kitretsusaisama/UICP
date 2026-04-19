@@ -25,7 +25,7 @@ export class AuditExportWorker extends WorkerHost {
        await this.dbPool.query('UPDATE audit_exports SET status = "processing" WHERE id = ?', [exportId]);
 
        const writeStream = fs.createWriteStream(filePath, { flags: 'w' });
-       writeStream.write('audit_id,event,actor_id,timestamp,metadata\n');
+       writeStream.write('audit_id,action,actor_id,created_at,metadata\n');
 
        // Simulating streaming via batch pagination to avoid loading millions of rows into memory
        let offset = 0;
@@ -34,10 +34,10 @@ export class AuditExportWorker extends WorkerHost {
 
        while (hasMore) {
           const [rows]: any = await this.dbPool.query(
-             `SELECT audit_id, event, actor_id, timestamp, metadata
+             `SELECT id as audit_id, action, actor_id, UNIX_TIMESTAMP(created_at) * 1000 as created_at, metadata
               FROM audit_logs
-              WHERE tenant_id = ? AND timestamp >= ? AND timestamp <= ?
-              ORDER BY timestamp ASC LIMIT ? OFFSET ?`,
+              WHERE tenant_id = ? AND UNIX_TIMESTAMP(created_at) * 1000 >= ? AND UNIX_TIMESTAMP(created_at) * 1000 <= ?
+              ORDER BY created_at ASC LIMIT ? OFFSET ?`,
              [tenantId, fromTimestamp, toTimestamp, limit, offset]
           );
 
@@ -45,8 +45,8 @@ export class AuditExportWorker extends WorkerHost {
              hasMore = false;
           } else {
              for (const row of rows) {
-                const metadataStr = JSON.stringify(row.metadata).replace(/"/g, '""');
-                writeStream.write(`"${row.audit_id}","${row.event}","${row.actor_id}",${row.timestamp},"${metadataStr}"\n`);
+                const metadataStr = JSON.stringify(row.metadata || {}).replace(/"/g, '""');
+                writeStream.write(`"${row.audit_id}","${row.action}","${row.actor_id}",${row.created_at},"${metadataStr}"\n`);
              }
              offset += limit;
           }

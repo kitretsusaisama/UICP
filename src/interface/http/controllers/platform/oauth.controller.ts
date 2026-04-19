@@ -1,4 +1,6 @@
-import { Controller, Post, UseGuards, Get, Query, Req, Res, Body, Headers, BadRequestException, Inject } from '@nestjs/common';
+import { Governance } from '../../../../src/infrastructure/governance/decorators/governance.decorator';
+import { GovernanceGuard } from '../../../../src/infrastructure/governance/guards/governance.guard';
+import { Controller, Post, UseGuards, Get, Query, Req, Res, Body, Headers, BadRequestException, Inject, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { OAuthService } from '../../../../src/application/services/platform/oauth.service';
@@ -22,6 +24,8 @@ export class OAuthController {
   ) {}
 
   @Get('authorize')
+  @UseGuards(GovernanceGuard)
+  @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })
   @ApiOperation({ summary: 'Initiate OIDC Authorization Code Flow (PKCE Required)' })
   @ApiQuery({ name: 'response_type', enum: ['code'], required: true })
   @ApiQuery({ name: 'client_id', required: true })
@@ -59,6 +63,8 @@ export class OAuthController {
   }
 
   @Post('token')
+  @UseGuards(GovernanceGuard)
+  @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })
   @ApiOperation({ summary: 'Exchange Authorization Code for Tokens' })
   async token(
     @Body('grant_type') grantType: string,
@@ -92,6 +98,8 @@ export class OAuthController {
 
   @Post('introspect')
   @UseGuards(ClientBasicAuthGuard)
+  @UseGuards(GovernanceGuard)
+  @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })
   @ApiOperation({ summary: 'Introspect a token (OAuth 2.0 / RFC 7662)' })
   async introspect(@Req() req: any, @Body() body: any) {
     const { token } = body;
@@ -139,6 +147,8 @@ export class OAuthController {
 
   @Post('revoke')
   @UseGuards(ClientBasicAuthGuard)
+  @UseGuards(GovernanceGuard)
+  @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })
   @ApiOperation({ summary: 'Revoke a token (OAuth 2.0 / RFC 7009)' })
   async revoke(@Req() req: any, @Body() body: any) {
     const { token, token_type_hint } = body;

@@ -1,13 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject } from '@nestjs/common';
 import { Request } from 'express';
-import { AppSecretRepository } from '../../../../src/domain/repositories/platform/app-secret.repository.interface';
-import * as bcrypt from 'bcrypt';
+import { IAppSecretRepository } from '../../../../src/domain/repositories/platform/app-secret.repository.interface';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class ClientBasicAuthGuard implements CanActivate {
   constructor(
-    @Inject('APP_SECRET_REPOSITORY') private readonly secretRepo: AppSecretRepository
+    @Inject('APP_SECRET_REPOSITORY') private readonly secretRepo: IAppSecretRepository
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -31,25 +30,39 @@ export class ClientBasicAuthGuard implements CanActivate {
       throw new UnauthorizedException('Malformed Basic authentication payload');
     }
 
-    const appSecretEntity = await this.secretRepo.findByAppId(clientId);
-    // Allow both active and deprecated secrets during grace period rollover
-    if (!appSecretEntity || (appSecretEntity.status !== 'active' && appSecretEntity.status !== 'deprecated')) {
+    const appSecretEntities = await this.secretRepo.findByAppId(clientId);
+    if (!appSecretEntities || appSecretEntities.length === 0) {
       throw new UnauthorizedException('Invalid client credentials');
     }
 
-    // Hash the incoming plain secret using SHA256 exactly as done during creation in AppSecretService
+    // AppSecretService.createSecret uses SHA-256 for machine-generated secrets (not bcrypt).
+    // Thus we hash the incoming raw secret and do a constant-time check.
     const incomingHash = crypto.createHash('sha256').update(clientSecret).digest('hex');
 
-    // Compare against the stored bcrypt hash using constant-time comparison
-    const isValid = await bcrypt.compare(incomingHash, appSecretEntity.secretHash);
-    if (!isValid) {
+    // Iterate through active/deprecated keys for graceful rollover
+    let matchedApp = null;
+    for (const secretEntity of appSecretEntities) {
+       if (secretEntity.status !== 'active' && secretEntity.status !== 'deprecated') continue;
+
+       try {
+           const isValid = crypto.timingSafeEqual(Buffer.from(incomingHash), Buffer.from(secretEntity.secretHash));
+           if (isValid) {
+               matchedApp = secretEntity;
+               break;
+           }
+       } catch(e) {
+           // Mismatched buffer lengths
+       }
+    }
+
+    if (!matchedApp) {
       throw new UnauthorizedException('Invalid client credentials');
     }
 
     // Inject verified app/client into request
     (req as any).clientApp = {
-       clientId: appSecretEntity.appId,
-       tenantId: appSecretEntity.tenantId
+       clientId: matchedApp.appId,
+       tenantId: matchedApp.tenantId
     };
 
     return true;
