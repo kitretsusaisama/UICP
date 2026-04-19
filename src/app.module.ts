@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { PlatformOpsModule } from './infrastructure/platform-ops/platform-ops.module';
 import { ClsModule } from 'nestjs-cls';
 
 // Shared
