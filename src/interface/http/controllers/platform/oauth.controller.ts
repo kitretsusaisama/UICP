@@ -1,145 +1,184 @@
-import { Controller, Get, Post, Query, Body, Res, Req, UseGuards, BadRequestException, UnauthorizedException, Headers, Param } from '@nestjs/common';
-import { Response } from 'express';
-import { OAuthService } from '../../../../application/services/platform/oauth.service';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
+import { Controller, Post, UseGuards, Get, Query, Req, Res, Body, Headers, BadRequestException, Inject } from '@nestjs/common';
+import { Request, Response } from 'express';
+import { ApiTags, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { OAuthService } from '../../../../src/application/services/platform/oauth.service';
+import { ulid } from 'ulid';
+import { CACHE_ADAPTER } from '../../../../src/domain/repositories/cache.repository.interface';
+import { CacheAdapter } from '../../../../src/infrastructure/cache/redis-cache.adapter';
+import { JwtService } from '@nestjs/jwt';
+import { TokenService } from '../../../../src/application/services/token.service';
+import { AuditLogWriter } from '../../../../src/application/services/audit-log.writer';
+import { ClientBasicAuthGuard } from '../../guards/client-basic-auth.guard';
 
+@ApiTags('OAuth 2.1')
 @Controller('v1/oauth2')
 export class OAuthController {
-  constructor(private readonly oauthService: OAuthService) {}
+  constructor(
+    private readonly oauthService: OAuthService,
+    private readonly jwtService: JwtService,
+    private readonly tokenService: TokenService,
+    private readonly auditWriter: AuditLogWriter,
+    @Inject(CACHE_ADAPTER) private readonly cache: CacheAdapter
+  ) {}
 
   @Get('authorize')
-  @UseGuards(JwtAuthGuard, TenantGuard) // Requires a logged-in user context
+  @ApiOperation({ summary: 'Initiate OIDC Authorization Code Flow (PKCE Required)' })
+  @ApiQuery({ name: 'response_type', enum: ['code'], required: true })
+  @ApiQuery({ name: 'client_id', required: true })
+  @ApiQuery({ name: 'redirect_uri', required: true })
+  @ApiQuery({ name: 'code_challenge', required: true })
+  @ApiQuery({ name: 'code_challenge_method', enum: ['S256'], required: true })
+  @ApiQuery({ name: 'state', required: false })
+  @ApiQuery({ name: 'nonce', required: false })
+  @ApiResponse({ status: 302, description: 'Redirects to consent/login UI' })
   async authorize(
-    @Req() req: any,
-    @Res() res: Response,
     @Query('response_type') responseType: string,
     @Query('client_id') clientId: string,
     @Query('redirect_uri') redirectUri: string,
-    @Query('state') state: string,
     @Query('code_challenge') codeChallenge: string,
     @Query('code_challenge_method') codeChallengeMethod: string,
-    @Query('scope') scope?: string,
-    @Query('nonce') nonce?: string,
+    @Query('state') state: string,
+    @Query('nonce') nonce: string,
+    @Res() res: Response
   ) {
-    const tenantId = req.tenantId;
-    const userId = req.user.sub;
+    if (responseType !== 'code') throw new BadRequestException('Only response_type=code is supported');
+    if (!clientId) throw new BadRequestException('client_id is required');
+    if (!redirectUri) throw new BadRequestException('redirect_uri is required');
+    if (codeChallengeMethod !== 'S256') throw new BadRequestException('code_challenge_method must be S256 (PKCE strictly enforced)');
 
-    try {
-      const redirectUrl = await this.oauthService.authorize({
-        tenantId,
-        userId,
-        clientId,
-        redirectUri,
-        responseType,
-        scope,
-        state,
-        nonce,
-        codeChallenge,
-        codeChallengeMethod,
-      });
+    await this.oauthService.validateRedirectUri(clientId, redirectUri);
 
-      return res.redirect(302, redirectUrl);
-    } catch (err: any) {
-      if (err instanceof BadRequestException || err instanceof UnauthorizedException || err.status === 401 || err.status === 400) {
-        if (err.message === 'invalid_client' || err.message.includes('redirect_uri mismatch')) {
-          return res.status(400).json({ error: 'invalid_request', error_description: err.message });
-        }
+    const redirectUrl = new URL('https://login.uicp.com/consent');
+    redirectUrl.searchParams.set('client_id', clientId);
+    redirectUrl.searchParams.set('redirect_uri', redirectUri);
+    redirectUrl.searchParams.set('code_challenge', codeChallenge);
+    if (state) redirectUrl.searchParams.set('state', state);
+    if (nonce) redirectUrl.searchParams.set('nonce', nonce);
 
-        const url = new URL(redirectUri);
-        url.searchParams.append('error', 'invalid_request');
-        url.searchParams.append('error_description', err.message);
-        url.searchParams.append('state', state);
-        return res.redirect(302, url.toString());
-      }
-      throw err;
-    }
+    return res.redirect(302, redirectUrl.toString());
   }
 
   @Post('token')
-  async token(@Body() body: any) {
-    const {
-      grant_type: grantType,
-      code,
-      redirect_uri: redirectUri,
-      client_id: clientId,
-      code_verifier: codeVerifier,
-    } = body;
-
-    try {
-      const result = await this.oauthService.exchangeToken({
-        grantType,
-        code,
-        redirectUri,
-        clientId,
-        codeVerifier,
-      });
-      return result;
-    } catch (err: any) {
-      if (err instanceof BadRequestException) {
-        let error = 'invalid_request';
-        if (err.message.includes('unsupported_grant_type')) error = 'unsupported_grant_type';
-        if (err.message.includes('invalid_grant')) error = 'invalid_grant';
-
-        throw new BadRequestException({ error, error_description: err.message });
-      }
-      throw err;
-    }
-  }
-
-  @Get('userinfo')
-  async userinfo(@Headers('authorization') authHeader: string) {
-    if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
-      throw new UnauthorizedException('Missing or invalid Authorization header');
-    }
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-      throw new UnauthorizedException('Missing or invalid Authorization header');
-    }
-
-    return await this.oauthService.getUserInfo(token);
-  }
-
-  @Get('callback/:provider')
-  async socialCallback(
-    @Req() req: any,
-    @Param('provider') provider: string,
-    @Query('code') code: string,
-    @Query('state') state: string
+  @ApiOperation({ summary: 'Exchange Authorization Code for Tokens' })
+  async token(
+    @Body('grant_type') grantType: string,
+    @Body('client_id') clientId: string,
+    @Body('code') code: string,
+    @Body('redirect_uri') redirectUri: string,
+    @Body('code_verifier') codeVerifier: string,
+    @Req() req: Request
   ) {
-    if (!state) {
-      throw new BadRequestException('State is required to prevent CSRF');
+    if (grantType !== 'authorization_code') throw new BadRequestException('Only authorization_code grant is supported');
+    if (!clientId || !code || !redirectUri || !codeVerifier) {
+      throw new BadRequestException('Missing required parameters (client_id, code, redirect_uri, code_verifier)');
     }
 
-    const providerProfile = {
-      providerUserId: '12345',
-      email: 'social@example.com',
-      emailVerified: true
-    };
-
-    const tenantId = req.tenantId || 'tenant-1';
-
-    const result = await this.oauthService.handleSocialLogin({
-      provider,
-      providerUserId: providerProfile.providerUserId,
-      email: providerProfile.email,
-      emailVerified: providerProfile.emailVerified,
-      tenantId,
+    const { tokens, user, tenantId } = await this.oauthService.exchangeCodeForTokens({
+      clientId,
+      code,
+      redirectUri,
+      codeVerifier
     });
 
-    if (result.action === 'verification_required') {
-      return {
-        success: true,
-        message: 'Account exists. Please verify your email to link this social login.',
-        userId: result.userId,
-        verification_required: true,
-      };
+    return {
+      access_token: tokens.accessToken,
+      id_token: tokens.idToken,
+      refresh_token: tokens.refreshToken,
+      token_type: 'Bearer',
+      expires_in: 3600,
+      scope: 'openid profile email'
+    };
+  }
+
+  @Post('introspect')
+  @UseGuards(ClientBasicAuthGuard)
+  @ApiOperation({ summary: 'Introspect a token (OAuth 2.0 / RFC 7662)' })
+  async introspect(@Req() req: any, @Body() body: any) {
+    const { token } = body;
+    if (!token) {
+       return { active: false }; // Silent failure to prevent leak
+    }
+
+    try {
+       // Decode without verifying signature first to extract JTI and type
+       const decoded = this.jwtService.decode(token) as any;
+       if (!decoded) return { active: false };
+
+       // Check Redis revocation blocklist
+       const jti = decoded.jti;
+       if (jti) {
+          const isRevoked = await this.cache.get(`jti:${jti}`);
+          if (isRevoked) return { active: false };
+       }
+
+       // Verify JWT signature securely
+       const verified = this.jwtService.verify(token);
+
+       // Must belong to the same tenant as the client performing introspection
+       const clientApp = req.clientApp;
+       if (verified.tenantId !== clientApp.tenantId) {
+          return { active: false };
+       }
+
+       return {
+         active: true,
+         sub: verified.sub,
+         client_id: clientApp.clientId,
+         scope: verified.scope || '',
+         exp: verified.exp,
+         iat: verified.iat,
+         iss: verified.iss || 'https://auth.uicp.com',
+         jti: verified.jti,
+         tenant_id: verified.tenantId
+       };
+    } catch (err) {
+       // Signature mismatch, expired, or malformed
+       return { active: false };
+    }
+  }
+
+  @Post('revoke')
+  @UseGuards(ClientBasicAuthGuard)
+  @ApiOperation({ summary: 'Revoke a token (OAuth 2.0 / RFC 7009)' })
+  async revoke(@Req() req: any, @Body() body: any) {
+    const { token, token_type_hint } = body;
+    if (!token) {
+       return { success: true, data: { revoked: true } }; // Idempotent per RFC
+    }
+
+    try {
+       // Decode token to extract JTI
+       const decoded = this.jwtService.decode(token) as any;
+       if (decoded && decoded.jti) {
+          const exp = decoded.exp || Math.floor(Date.now() / 1000) + 3600;
+          const ttl = Math.max(0, exp - Math.floor(Date.now() / 1000));
+          if (ttl > 0) {
+             // Blocklist access token
+             await this.cache.set(`jti:${decoded.jti}`, '1', ttl);
+          }
+
+          // If token type is refresh, also purge family in database
+          if (token_type_hint === 'refresh_token' || decoded.type === 'refresh') {
+             await this.tokenService.revokeFamily(decoded.jti, 'Revoked via /revoke endpoint');
+          }
+
+          this.auditWriter.writeLog({
+             auditId: ulid(),
+             tenantId: req.clientApp.tenantId,
+             actorId: req.clientApp.clientId,
+             event: 'TOKEN_REVOKED',
+             timestamp: Date.now(),
+             metadata: JSON.stringify({ jti: decoded.jti, type: token_type_hint })
+          });
+       }
+    } catch (err) {
+       // Continue silently; revocation API must always return success per RFC
     }
 
     return {
       success: true,
-      data: result,
-      meta: { version: 'v1' }
+      data: { revoked: true },
+      meta: { requestId: req.headers['x-request-id'] || ulid(), timestamp: Math.floor(Date.now()/1000) }
     };
   }
 }
