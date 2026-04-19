@@ -1,3 +1,4 @@
+import { QueueBackpressureGuard } from '../guards/queue-backpressure.guard';
 import {
   BadRequestException,
   Body,
@@ -177,6 +178,7 @@ function getClientIp(req: AuthRequest): string {
 @ApiTags('Auth')
 @ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
 @Controller('v1/auth')
+  @UseGuards(QueueBackpressureGuard)
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 

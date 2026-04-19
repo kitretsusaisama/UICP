@@ -169,7 +169,7 @@ export class OAuthController {
 
           // If token type is refresh, also purge family in database
           if (token_type_hint === 'refresh_token' || decoded.type === 'refresh') {
-             await this.tokenService.revokeFamily(decoded.jti, 'Revoked via /revoke endpoint');
+             await this.tokenService.revokeFamily(decoded.jti, req.clientApp.tenantId, 'Revoked via /revoke endpoint');
           }
 
           this.auditWriter.writeLog({
