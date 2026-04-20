@@ -33,8 +33,11 @@ export class GovernanceBootstrapValidator implements OnApplicationBootstrap {
         // FOR NOW: Let's log instead of hard crashing everything since we just introduced this
         // In a true production roll-out, this throw new Error(...) would be uncommented
         if (!meta) {
-          console.warn(`[GOVERNANCE LEAK DETECTED]: ${instance.constructor.name}.${method} lacks @Governance() metadata.`);
-          // throw new Error(`Missing governance metadata: ${instance.constructor.name}.${method}`);
+          if (process.env.RELEASE_MODE === 'production') {
+            throw new Error(`[PRODUCTION BOOT ERROR] Missing governance metadata: ${instance.constructor.name}.${method}`);
+          } else {
+            console.warn(`[GOVERNANCE LEAK DETECTED]: ${instance.constructor.name}.${method} lacks @Governance() metadata.`);
+          }(`Missing governance metadata: ${instance.constructor.name}.${method}`);
         }
       }
     }
