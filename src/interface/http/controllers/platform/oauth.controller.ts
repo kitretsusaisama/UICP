@@ -24,6 +24,7 @@ export class OAuthController {
   ) {}
 
   @Get('authorize')
+  @Governance({ owner: 'auth-team', risk: 'critical', auth: 'public' })
   @UseGuards(GovernanceGuard)
   @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })
   @ApiOperation({ summary: 'Initiate OIDC Authorization Code Flow (PKCE Required)' })
@@ -50,7 +51,10 @@ export class OAuthController {
     if (!redirectUri) throw new BadRequestException('redirect_uri is required');
     if (codeChallengeMethod !== 'S256') throw new BadRequestException('code_challenge_method must be S256 (PKCE strictly enforced)');
 
-    await this.oauthService.validateRedirectUri(clientId, redirectUri);
+    const appEntity = await this.oauthService.getClientApp(clientId);
+    if (!appEntity || !appEntity.redirectUris.includes(redirectUri)) {
+        throw new BadRequestException('Invalid redirect_uri');
+    }
 
     const redirectUrl = new URL('https://login.uicp.com/consent');
     redirectUrl.searchParams.set('client_id', clientId);
@@ -63,6 +67,7 @@ export class OAuthController {
   }
 
   @Post('token')
+  @Governance({ owner: 'auth-team', risk: 'critical', auth: 'public' })
   @UseGuards(GovernanceGuard)
   @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })
   @ApiOperation({ summary: 'Exchange Authorization Code for Tokens' })
@@ -79,7 +84,7 @@ export class OAuthController {
       throw new BadRequestException('Missing required parameters (client_id, code, redirect_uri, code_verifier)');
     }
 
-    const { tokens, user, tenantId } = await this.oauthService.exchangeCodeForTokens({
+    const { tokens, user, tenantId } = await this.oauthService.exchangeToken({
       clientId,
       code,
       redirectUri,
@@ -97,6 +102,7 @@ export class OAuthController {
   }
 
   @Post('introspect')
+  @Governance({ owner: 'auth-team', risk: 'high', auth: 'client' })
   @UseGuards(ClientBasicAuthGuard)
   @UseGuards(GovernanceGuard)
   @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })
@@ -146,6 +152,7 @@ export class OAuthController {
   }
 
   @Post('revoke')
+  @Governance({ owner: 'auth-team', risk: 'high', auth: 'client' })
   @UseGuards(ClientBasicAuthGuard)
   @UseGuards(GovernanceGuard)
   @Governance({ owner: 'platform-team@uicp.com', risk: 'medium', auth: 'client' })

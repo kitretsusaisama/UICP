@@ -7,4 +7,5 @@ export interface GovernanceMetadata {
   auth?: 'public' | 'user' | 'admin' | 'internal' | 'client';
 }
 
+// In the dual-lock system, the runtime decorator must hold the exact same keys as the manifest checks
 export const Governance = (meta: GovernanceMetadata) => SetMetadata('governance', meta);
