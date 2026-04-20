@@ -36,7 +36,7 @@ export class AuditExportWorker extends WorkerHost {
           const [rows]: any = await this.dbPool.query(
              `SELECT id as audit_id, action, actor_id, UNIX_TIMESTAMP(created_at) * 1000 as created_at, metadata
               FROM audit_logs
-              WHERE tenant_id = ? AND UNIX_TIMESTAMP(created_at) * 1000 >= ? AND UNIX_TIMESTAMP(created_at) * 1000 <= ?
+              WHERE tenant_id = ? AND created_at >= FROM_UNIXTIME(? / 1000) AND created_at <= FROM_UNIXTIME(? / 1000)
               ORDER BY created_at ASC LIMIT ? OFFSET ?`,
              [tenantId, fromTimestamp, toTimestamp, limit, offset]
           );
@@ -52,7 +52,7 @@ export class AuditExportWorker extends WorkerHost {
           }
        }
 
-       writeStream.end();
+       await new Promise((resolve) => { writeStream.end(resolve); });
 
        await this.dbPool.query(
            'UPDATE audit_exports SET status = "completed", file_path = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?',

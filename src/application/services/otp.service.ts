@@ -103,7 +103,7 @@ export class OtpService {
     let resultCode: number | string;
 
     if (client && typeof client.eval === 'function') {
-      resultCode = await client.eval(luaScript, 2, key, consumedKey);
+      resultCode = await client.eval(luaScript, 2, key, consumedKey, this.ttlS);
       if (resultCode === -1) {
         throw new DomainException(DomainErrorCode.OTP_ALREADY_USED, 'OTP code has already been used');
       } else if (resultCode === -2) {
@@ -121,7 +121,7 @@ export class OtpService {
         }
         throw new DomainException(DomainErrorCode.OTP_EXPIRED, 'OTP code has expired');
       }
-      await this.cache.set(consumedKey, '1', 300);
+      await this.cache.set(consumedKey, '1', this.ttlS);
     }
 
     // Timing-safe comparison (Req 6.8)

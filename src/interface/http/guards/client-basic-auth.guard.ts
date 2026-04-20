@@ -22,10 +22,10 @@ export class ClientBasicAuthGuard implements CanActivate {
 
     try {
       const decoded = Buffer.from(authHeader.split(' ')[1], 'base64').toString('utf8');
-      const parts = decoded.split(':');
-      if (parts.length !== 2) throw new Error('Invalid format');
-      clientId = parts[0];
-      clientSecret = parts[1];
+      const colonIdx = decoded.indexOf(':');
+      if (colonIdx === -1) throw new Error('Invalid format');
+      clientId = decoded.substring(0, colonIdx);
+      clientSecret = decoded.substring(colonIdx + 1);
     } catch (err) {
       throw new UnauthorizedException('Malformed Basic authentication payload');
     }

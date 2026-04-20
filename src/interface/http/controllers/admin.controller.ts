@@ -42,7 +42,10 @@ export class AdminController {
      const tenantId = req.user.tenantId;
 
      // Remove device from Redis trusted set
-     await this.cache.srem(`trusted_devices:${userId}`, deviceId);
+     await this.cache.srem(`trusted-devices:${tenantId}:${userId}`, deviceId);
+
+     // Also invalidate matching sessions physically mapped in Redis if required
+     // (SessionService typically maps active sessions, for compliance we ensure the trust removal forces an MFA step up next time)
 
      this.auditWriter.writeLog({
         auditId: ulid(),

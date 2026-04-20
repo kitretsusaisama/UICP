@@ -1,8 +1,9 @@
+import { KmsService } from '../platform/kms.service';
 import { Injectable, Inject, UnauthorizedException, BadRequestException, GatewayTimeoutException, ForbiddenException } from '@nestjs/common';
 import { ExtensionRegistryService, CommandContext } from './extension.registry';
 import { CACHE_ADAPTER } from '../../../../src/domain/repositories/cache.repository.interface';
 import { CacheAdapter } from '../../../../src/infrastructure/cache/redis-cache.adapter';
-import { IAppSecretRepository } from '../../../../src/domain/repositories/platform/app-secret.repository.interface';
+import { IAppRepository } from '../../../../src/domain/repositories/platform/app.repository.interface';
 import { PolicyService } from '../governance/policy.service';
 import { MetricsService } from '../platform-ops/metrics.service';
 import * as crypto from 'crypto';
@@ -12,9 +13,10 @@ export class ExtensionExecutorService {
   constructor(
     private readonly registry: ExtensionRegistryService,
     @Inject(CACHE_ADAPTER) private readonly cache: CacheAdapter,
-    @Inject('APP_SECRET_REPOSITORY') private readonly secretRepo: IAppSecretRepository,
+    @Inject('APP_REPOSITORY') private readonly appRepo: IAppRepository,
     private readonly policyService: PolicyService,
-    private readonly metrics: MetricsService
+    private readonly metrics: MetricsService,
+
   ) {}
 
   public async executeCommand(
@@ -101,34 +103,35 @@ export class ExtensionExecutorService {
     const payloadHash = crypto.createHash('sha256').update(rawPayloadStr).digest('hex');
     const signatureBase = `${payloadHash}${timestamp}${nonce}`;
 
-    // In Phase 3, secrets are hashed using SHA-256 and stored as hex in DB.
-    // The client signs their payload using the RAW secret.
-    // To securely verify the HMAC without knowing the RAW secret, the architecture
-    // mandates that the client passes a signature, but mathematically we cannot recreate an HMAC
-    // from a SHA-256 hash.
-    // Thus, in this strict deployment mode, if actual KMS resolution is omitted,
-    // we bypass strict DB HMAC verification IF the app is a local testing harness,
-    // or we assume the system provides an interface to resolve the raw secret.
-    // Given the constraints, we will allow the simulation to proceed if it matches the mock value.
-    let isValid = false;
+    // In a secure architecture, we retrieve the raw secret from an internal KMS to compute HMAC
+    const rawSecret = await this.kmsService.getRawSecret(appId);
+    if (!rawSecret) throw new UnauthorizedException('KMS Error: Unable to resolve signing material');
 
-    // Theoretically, if we had the raw secret:
-    // const expectedSignature = crypto.createHmac('sha256', rawSecret).update(signatureBase).digest('hex');
+    const expectedSignature = crypto.createHmac('sha256', rawSecret).update(signatureBase).digest('hex');
 
-    if (signature === 'mock_valid_signature_for_testing') {
-       isValid = true;
-    }
-
-    if (!isValid) {
+    if (signature !== expectedSignature) {
       throw new UnauthorizedException('Invalid payload signature');
     }
   }
 
   private async enforceRateLimit(tenantId: string, ext: string, cmd: string, config: { limit: number, window: number }) {
     const key = `rate:ext:${tenantId}:${ext}:${cmd}`;
-    const current = await this.cache.incr(key);
-    if (current === 1) {
-      await this.cache.expire(key, config.window);
+    // Fixed: Non-atomic INCR + EXPIRE replaced with Lua script per Phase 10 directives
+    const luaScript = `
+      local current = redis.call('INCR', KEYS[1])
+      if current == 1 then
+          redis.call('EXPIRE', KEYS[1], ARGV[1])
+      end
+      return current
+    `;
+    const client = (this.cache as any).getClient?.();
+    let current = 0;
+    if (client && typeof client.eval === 'function') {
+       current = await client.eval(luaScript, 1, key, config.window);
+    } else {
+       // Fallback ONLY if ioredis client access fails
+       current = await this.cache.incr(key);
+       if (current === 1) await this.cache.expire(key, config.window);
     }
     if (current > config.limit) {
       throw new BadRequestException('Extension rate limit exceeded');
