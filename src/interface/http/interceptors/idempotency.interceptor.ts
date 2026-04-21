@@ -63,6 +63,9 @@ export class IdempotencyInterceptor implements NestInterceptor {
         statusCode: 202, // Accepted/Processing
         body: { error: 'Request is currently processing' },
         createdAt: new Date().toISOString(),
+        meta: {
+          idempotencyState: 'PENDING',
+        },
       };
 
       const client = (this.cache as any).getClient?.();
@@ -85,7 +88,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
         if (cached !== null) {
           const record = JSON.parse(cached) as CachedResponse;
 
-          if (record.statusCode === 202 && (record.body as any)?.error === 'Request is currently processing') {
+          if (record.meta?.idempotencyState === 'PENDING') {
             // Concurrent request is currently executing
             res.status(409); // Conflict
             return new Observable((subscriber) => {

@@ -203,7 +203,19 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     // WAR-GRADE DEFENSE: Phase 7 SOC & Detection
     // Threat/security events must route to soc-alert BEFORE falling into audit-write
     // to ensure replay and reuse events bypass normal logs and immediately trigger SOC pipelines.
-    if (eventType.includes('Threat') || eventType.includes('Reuse')) {
+    const socSecurityEventTypes = new Set<string>([
+      'TokenReuseDetected',
+      'ThreatSignalRaised',
+    ]);
+
+    const SOC_SECURITY_EVENT_PREFIXES = ['Security.', 'Threat.', 'AuthThreat.'] as const;
+
+    const isExplicitSocEvent = socSecurityEventTypes.has(eventType);
+    const hasSocSecurityPrefix = SOC_SECURITY_EVENT_PREFIXES.some((prefix) =>
+      eventType.startsWith(prefix),
+    );
+
+    if (isExplicitSocEvent || hasSocSecurityPrefix) {
       return QUEUE_NAMES.SOC_ALERT;
     }
 

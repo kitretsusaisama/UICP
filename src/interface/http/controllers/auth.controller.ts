@@ -54,6 +54,7 @@ import { INJECTION_TOKENS } from '../../../application/ports/injection-tokens';
 import { SessionId } from '../../../domain/value-objects/session-id.vo';
 import { TenantId } from '../../../domain/value-objects/tenant-id.vo';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { ClientAuthGuard } from '../guards/client-auth.guard';
 import { IdempotencyInterceptor } from '../interceptors/idempotency.interceptor';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
 
@@ -468,6 +469,7 @@ export class AuthController {
 
   @Post('oauth2/introspect')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(ClientAuthGuard)
   async introspectToken(
     @Headers('x-tenant-id') rawTenantId: string,
     @Body(new ZodValidationPipe(introspectTokenSchema)) body: z.infer<typeof introspectTokenSchema>,
@@ -478,6 +480,9 @@ export class AuthController {
       if (payload.tid !== tenantId) {
         return { data: { active: false } };
       }
+
+      const scopes = payload.capabilities ?? payload.perms ?? [];
+
       return {
         data: {
           active: true,
@@ -486,7 +491,7 @@ export class AuthController {
           iss: payload.iss,
           exp: payload.exp,
           iat: payload.iat,
-          scope: payload.capabilities ?? payload.perms ?? [],
+          scope: scopes.join(' '),
           roles: payload.roles ?? [],
           client_id: 'uicp',
           jti: payload.jti,

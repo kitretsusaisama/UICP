@@ -17,3 +17,5 @@ node_modules/
 dist/
 coverage/
 .npm/
+dist/
+node_modules/
