@@ -3,28 +3,30 @@ import { map, Observable } from 'rxjs';
 import { ClsService } from 'nestjs-cls';
 
 export interface ResponseEnvelope<T = unknown> {
+  success: boolean;
   data: T;
   meta: {
     requestId: string;
     timestamp: string;
+    version: string;
   };
 }
 
 /**
- * ResponseEnvelopeInterceptor — wraps all successful responses in a standard envelope.
+ * ResponseEnvelopeInterceptor — wraps all successful responses in a standard MNC-grade envelope.
  *
- * Implements: Req 1.6
+ * Implements: MNC-Grade Execution Plan (Phase 1)
  *
  * Output shape:
  * ```json
  * {
+ *   "success": true,
  *   "data": <original response>,
- *   "meta": { "requestId": "...", "timestamp": "..." }
+ *   "meta": { "requestId": "...", "timestamp": "...", "version": "v1" }
  * }
  * ```
  *
- * Responses that are already enveloped (have a `data` key at the top level)
- * are passed through as-is to avoid double-wrapping.
+ * Handlers that return `{ data: ... }` will be repacked correctly into the global shape.
  */
 @Injectable()
 export class ResponseEnvelopeInterceptor implements NestInterceptor {
@@ -35,22 +37,27 @@ export class ResponseEnvelopeInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       map((body) => {
-        // Avoid double-wrapping if handler already returned an envelope
-        if (body !== null && typeof body === 'object' && 'data' in (body as object) && 'meta' in (body as object)) {
-          return body as ResponseEnvelope;
-        }
-
         const requestId =
           (this.cls.get('requestId') as string | undefined) ??
           (req['id'] as string | undefined) ??
           '';
 
+        const meta = {
+          requestId,
+          timestamp: new Date().toISOString(),
+          version: 'v1',
+        };
+
+        // Extract the data payload securely
+        let dataPayload = body;
+        if (body !== null && typeof body === 'object' && 'data' in (body as object)) {
+          dataPayload = (body as Record<string, unknown>).data;
+        }
+
         return {
-          data: body,
-          meta: {
-            requestId,
-            timestamp: new Date().toISOString(),
-          },
+          success: true,
+          data: dataPayload ?? {},
+          meta,
         };
       }),
     );

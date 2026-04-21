@@ -69,6 +69,26 @@ const ROUTE_RULES: Array<{ method: string; pathPrefix: string; rule: RateLimitRu
     pathPrefix: '/auth/logout',
     rule: { tier: 'logout', limit: 100, windowSeconds: 60, keyType: 'user' },
   },
+  {
+    method: 'POST',
+    pathPrefix: '/roles',
+    rule: { tier: 'roles-create', limit: 20, windowSeconds: 60, keyType: 'user' },
+  },
+  {
+    method: 'POST',
+    pathPrefix: '/roles/assign',
+    rule: { tier: 'roles-assign', limit: 50, windowSeconds: 60, keyType: 'user' },
+  },
+  {
+    method: 'POST',
+    pathPrefix: '/policies',
+    rule: { tier: 'policies-create', limit: 20, windowSeconds: 60, keyType: 'user' },
+  },
+  {
+    method: 'POST',
+    pathPrefix: '/policies/',
+    rule: { tier: 'policies-test', limit: 100, windowSeconds: 60, keyType: 'user' },
+  },
 ];
 
 // ── In-memory token bucket (fallback when Redis is unavailable) ───────────────
@@ -163,6 +183,30 @@ export class RateLimiterMiddleware implements NestMiddleware {
         windowStart,
       ));
     } else {
+      // WAR-GRADE DEFENSE: Cost Critical / Auth Critical Rate Limits
+      // If Redis is down, we must NOT fail-open or degrade to in-memory loosely on critical routes.
+      // An attacker can drop the Redis pod and instantly bypass the global limits via horizontal scaling.
+      if (rule.tier === 'otp-send' || rule.tier === 'signup' || rule.tier === 'pw-reset') {
+        this.logger.error({ tier: rule.tier }, 'RATE LIMITER FAIL CLOSED: Redis unavailable for critical tier');
+
+        // Strict fail closed
+        res.setHeader('Retry-After', 30);
+        res.status(503).json({
+          success: false,
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'Service is temporarily unavailable, please try again later.',
+            retryable: true,
+          },
+          meta: {
+            requestId: (req as any).id ?? '',
+            timestamp: new Date().toISOString(),
+            version: 'v1',
+          },
+        });
+        return;
+      }
+
       // Fallback: in-memory token bucket (per-pod, not distributed — Req 15.2)
       ({ allowed, remaining, resetAt } = this.fallback.consume(
         redisKey,
@@ -186,14 +230,17 @@ export class RateLimiterMiddleware implements NestMiddleware {
       );
 
       res.status(429).json({
+        success: false,
         error: {
           code: 'RATE_LIMIT_EXCEEDED',
           message: 'Too many requests. Please try again later.',
           retryAfter: Math.max(1, retryAfter),
+          retryable: true,
         },
         meta: {
           requestId: (req as any).id ?? '',
           timestamp: new Date().toISOString(),
+          version: 'v1',
         },
       });
       return;
@@ -238,15 +285,16 @@ export class RateLimiterMiddleware implements NestMiddleware {
   }
 
   private normalizePath(path: string): string {
-    if (path.startsWith('/api/v1/')) {
-      return path.replace('/api/v1', '');
+    if (path.startsWith('/v1/')) {
+      return path.replace('/v1', '');
     }
     return path;
   }
 
   /**
-   * Redis-backed token bucket using INCR + EXPIRE.
-   * Atomic: INCR creates the key with value 1 if it doesn't exist.
+   * Redis-backed token bucket using Atomic Lua Script (INCR + EXPIRE).
+   * Ensures that keys do not leak and cause permanent DoS if a crash happens
+   * between INCR and EXPIRE.
    */
   private async consumeRedis(
     key: string,
@@ -257,11 +305,24 @@ export class RateLimiterMiddleware implements NestMiddleware {
     const resetAt = windowStart + windowSeconds;
 
     try {
-      const count = await this.cache!.incr(key);
+      const luaScript = `
+        local c = redis.call('incr', KEYS[1])
+        if c == 1 then
+          redis.call('expire', KEYS[1], ARGV[1])
+        end
+        return c
+      `;
+      const client = (this.cache as any).getClient?.();
+      let count: number;
 
-      // Set TTL on first request in the window
-      if (count === 1) {
-        await this.cache!.expire(key, windowSeconds);
+      if (client && typeof client.eval === 'function') {
+        count = await client.eval(luaScript, 1, key, windowSeconds);
+      } else {
+        this.logger.warn('Atomic rate limiting unavailable: fallback to INCR+EXPIRE');
+        count = await this.cache!.incr(key);
+        if (count === 1) {
+          await this.cache!.expire(key, windowSeconds);
+        }
       }
 
       const remaining = Math.max(0, limit - count);

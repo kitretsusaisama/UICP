@@ -36,6 +36,9 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   private worker!: Worker;
   private pollTimer?: ReturnType<typeof setInterval>;
   private isPolling = false;
+  // WAR-GRADE DEFENSE: Track graceful shutdown state to not drop active relay promises
+  private isShuttingDown = false;
+  private activeRelayPromise: Promise<void> | null = null;
 
   private readonly connection: { host: string; port: number; password?: string; tls?: object };
 
@@ -81,9 +84,18 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.isShuttingDown = true;
     this.stopPolling();
+
+    // WAR-GRADE DEFENSE: Phase 8 Codebase Purge
+    // Wait for active polling loop to finish to prevent dropping events in flight.
+    if (this.activeRelayPromise) {
+      this.logger.log('Waiting for active outbox relay cycle to complete before shutdown...');
+      await this.activeRelayPromise;
+    }
+
     await this.worker.close();
-    this.logger.log('OutboxRelayWorker stopped');
+    this.logger.log('OutboxRelayWorker gracefully stopped');
   }
 
   // ── Polling Loop ───────────────────────────────────────────────────────────
@@ -91,8 +103,8 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
   private startPolling(): void {
     this.pollTimer = setInterval(() => {
       // Prevent overlapping poll cycles
-      if (!this.isPolling) {
-        void this.pollAndRelay();
+      if (!this.isPolling && !this.isShuttingDown) {
+        this.activeRelayPromise = this.pollAndRelay();
       }
     }, POLL_INTERVAL_MS);
   }
@@ -126,6 +138,7 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
       this.logger.error({ err }, 'Outbox poll cycle failed');
     } finally {
       this.isPolling = false;
+      this.activeRelayPromise = null;
     }
   }
 
@@ -187,6 +200,25 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
    * Domain events are routed to their appropriate processing queues.
    */
   private resolveTargetQueue(eventType: string): string {
+    // WAR-GRADE DEFENSE: Phase 7 SOC & Detection
+    // Threat/security events must route to soc-alert BEFORE falling into audit-write
+    // to ensure replay and reuse events bypass normal logs and immediately trigger SOC pipelines.
+    const socSecurityEventTypes = new Set<string>([
+      'TokenReuseDetected',
+      'ThreatSignalRaised',
+    ]);
+
+    const SOC_SECURITY_EVENT_PREFIXES = ['Security.', 'Threat.', 'AuthThreat.'] as const;
+
+    const isExplicitSocEvent = socSecurityEventTypes.has(eventType);
+    const hasSocSecurityPrefix = SOC_SECURITY_EVENT_PREFIXES.some((prefix) =>
+      eventType.startsWith(prefix),
+    );
+
+    if (isExplicitSocEvent || hasSocSecurityPrefix) {
+      return QUEUE_NAMES.SOC_ALERT;
+    }
+
     // Audit events → audit-write queue
     if (
       eventType.includes('Login') ||
@@ -199,11 +231,6 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
       eventType.includes('Otp')
     ) {
       return QUEUE_NAMES.AUDIT_WRITE;
-    }
-
-    // Threat/security events → soc-alert queue
-    if (eventType.includes('Threat') || eventType.includes('Reuse')) {
-      return QUEUE_NAMES.SOC_ALERT;
     }
 
     // Default: audit-write (catch-all for domain events)

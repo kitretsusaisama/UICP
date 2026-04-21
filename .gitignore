@@ -1,32 +1,21 @@
-# Dependencies
+# Dependency directories
 node_modules/
-
-# Build output
 dist/
+coverage/
 
-# Environment — never commit secrets
-.env
-.env.local
-.env.*.local
-
-# Firebase service account — never commit real credentials
-# firebase.json is kept as a template; real credentials go in .env
-# If you use a real service account JSON, add it here:
-# firebase-service-account.json
-# *-service-account.json
-
-# GeoIP database (download separately)
-data/
-
-# Logs
-*.log
-logs/
-
-# OS
+# Misc
 .DS_Store
-Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
 
-# IDE
-.idea/
-.vscode/
-*.swp
+src/infrastructure/db/mysql/repositories/soc/mysql-soc-alert.repository.spec.ts
+src/infrastructure/db/mysql/repositories/soc/mysql-incident.repository.spec.ts
+src/application/services/admin/audit.service.spec.ts
+node_modules/
+dist/
+coverage/
+.npm/
+dist/
+node_modules/

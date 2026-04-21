@@ -1,3 +1,4 @@
+import { QueueBackpressureGuard } from '../guards/queue-backpressure.guard';
 import {
   BadRequestException,
   Body,
@@ -53,6 +54,7 @@ import { INJECTION_TOKENS } from '../../../application/ports/injection-tokens';
 import { SessionId } from '../../../domain/value-objects/session-id.vo';
 import { TenantId } from '../../../domain/value-objects/tenant-id.vo';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { ClientAuthGuard } from '../guards/client-auth.guard';
 import { IdempotencyInterceptor } from '../interceptors/idempotency.interceptor';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
 
@@ -97,6 +99,10 @@ const otpVerifySchema = z.object({
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(128),
   newPassword: z.string().min(1).max(128),
+});
+
+const introspectTokenSchema = z.object({
+  token: z.string().min(1),
 });
 
 const passwordResetRequestSchema = z.object({
@@ -155,24 +161,25 @@ function getClientIp(req: AuthRequest): string {
  * Authentication API — all 14 endpoints from Section 17.1.
  *
  * Routes:
- *   POST  /api/v1/auth/signup
- *   POST  /api/v1/auth/login
- *   POST  /api/v1/auth/refresh
- *   POST  /api/v1/auth/logout
- *   POST  /api/v1/auth/logout-all
- *   POST  /api/v1/auth/otp/send
- *   POST  /api/v1/auth/otp/verify
- *   POST  /api/v1/auth/password/change
- *   POST  /api/v1/auth/password/reset/request
- *   POST  /api/v1/auth/password/reset/confirm
- *   GET   /api/v1/auth/oauth/:provider
- *   GET   /api/v1/auth/oauth/:provider/callback
+ *   POST  /v1/auth/signup
+ *   POST  /v1/auth/login
+ *   POST  /v1/auth/refresh
+ *   POST  /v1/auth/logout
+ *   POST  /v1/auth/logout-all
+ *   POST  /v1/auth/otp/send
+ *   POST  /v1/auth/otp/verify
+ *   POST  /v1/auth/password/change
+ *   POST  /v1/auth/password/reset/request
+ *   POST  /v1/auth/password/reset/confirm
+ *   GET   /v1/auth/oauth/:provider
+ *   GET   /v1/auth/oauth/:provider/callback
  *
  * Implements: Req 2, Req 3, Req 4, Req 5, Req 6, Req 7, Req 8
  */
 @ApiTags('Auth')
 @ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('api/v1/auth')
+@Controller('v1/auth')
+  @UseGuards(QueueBackpressureGuard)
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
@@ -380,7 +387,7 @@ export class AuthController {
       });
     }
 
-    const access = this.tokenService.mintAccessToken({
+    const access = await this.tokenService.mintAccessToken({
       principalId: runtimeContext.principalId,
       tenantId,
       membershipId: runtimeContext.membershipId,
@@ -458,6 +465,47 @@ export class AuthController {
     return { data: result };
   }
 
+  // ── POST /auth/oauth2/introspect ─────────────────────────────────────────
+
+  @Post('oauth2/introspect')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(ClientAuthGuard)
+  async introspectToken(
+    @Headers('x-tenant-id') rawTenantId: string,
+    @Body(new ZodValidationPipe(introspectTokenSchema)) body: z.infer<typeof introspectTokenSchema>,
+  ) {
+    const tenantId = parseTenantId(rawTenantId);
+    try {
+      const payload = await this.tokenService.validateAccessToken(body.token);
+      if (payload.tid !== tenantId) {
+        return { data: { active: false } };
+      }
+
+      const scopes = payload.capabilities ?? payload.perms ?? [];
+
+      return {
+        data: {
+          active: true,
+          sub: payload.sub,
+          aud: payload.aud,
+          iss: payload.iss,
+          exp: payload.exp,
+          iat: payload.iat,
+          scope: scopes.join(' '),
+          roles: payload.roles ?? [],
+          client_id: 'uicp',
+          jti: payload.jti,
+          acr: payload.acr,
+          amr: payload.amr
+        }
+      };
+    } catch (err) {
+      // Introspection endpoint should not throw 401s for invalid tokens,
+      // it simply returns `{ active: false }` per RFC 7662.
+      return { data: { active: false } };
+    }
+  }
+
   // ── GET /auth/oauth/:provider ──────────────────────────────────────────────
 
   @Get('oauth/:provider')
@@ -477,7 +525,7 @@ export class AuthController {
     // Build provider authorization URL (stub — real URLs configured via env)
     const host = req.get?.('host') ?? 'localhost:3000';
     const protocol = req.protocol ?? 'https';
-    const redirectUri = `${protocol}://${host}/api/v1/auth/oauth/${provider}/callback`;
+    const redirectUri = `${protocol}://${host}/v1/auth/oauth/${provider}/callback`;
     const authUrl = this.buildOAuthUrl(provider as OAuthProvider, state, redirectUri);
 
     this.logger.log({ provider, tenantId }, 'OAuth initiation');
@@ -515,7 +563,7 @@ export class AuthController {
 
     const host = req.get?.('host') ?? 'localhost:3000';
     const protocol = req.protocol ?? 'https';
-    const redirectUri = `${protocol}://${host}/api/v1/auth/oauth/${provider}/callback`;
+    const redirectUri = `${protocol}://${host}/v1/auth/oauth/${provider}/callback`;
     const ipHash = hashIp(getClientIp(req));
     const userAgent = (req.headers['user-agent'] as string | undefined) ?? '';
 

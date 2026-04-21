@@ -89,6 +89,23 @@ export class BullMqQueueAdapter implements IQueuePort, OnModuleInit, OnModuleDes
       removeOnFail: { count: 5_000 },
     };
 
+    // WAR-GRADE DEFENSE: Queue Collapse
+    // Bound the queue to prevent Redis OOM and infinite backlogs if workers die or DB is lagging.
+    // E.g., Max 50,000 pending jobs. After that, we drop new jobs or fail them.
+    const maxQueueLen = this.config.get<number>('BULLMQ_MAX_QUEUE_LEN') ?? 50000;
+    const sampleRate = this.config.get<number>('BULLMQ_QUEUE_LEN_SAMPLE_RATE') ?? 100;
+    if (sampleRate > 0 && Math.floor(Math.random() * sampleRate) === 0) {
+      const count = await q.getJobCountByTypes('wait', 'paused', 'delayed');
+      if (count >= maxQueueLen) {
+        this.logger.error({ queue, maxQueueLen, count }, 'QUEUE COLLAPSE DEFENSE: Queue is full, dropping job');
+        const error: any = new Error(`QUEUE_FULL: The queue ${queue} has reached its maximum capacity of ${maxQueueLen}`);
+        error.code = 'QUEUE_FULL';
+        throw error;
+      }
+    }, 'QUEUE COLLAPSE DEFENSE: Queue is full, dropping job');
+      throw new Error(`QUEUE_FULL: The queue ${queue} has reached its maximum capacity of ${maxQueueLen}`);
+    }
+
     await q.add(queue, payload, jobOptions);
     this.logger.debug({ queue, payload }, 'Job enqueued');
   }

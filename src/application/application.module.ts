@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-// Infrastructure modules (provide the ports that application services depend on)
+// Infrastructure modules
 import { RepositoriesModule } from '../infrastructure/db/mysql/repositories.module';
 import { SessionModule } from '../infrastructure/session/session.module';
 import { LockModule } from '../infrastructure/lock/lock.module';
@@ -17,6 +17,22 @@ import { DistributedLockService } from './services/distributed-lock.service';
 import { IdempotencyService } from './services/idempotency.service';
 import { RuntimeIdentityService } from './services/runtime-identity.service';
 import { RuntimeAuthorizationService } from './services/runtime-authorization.service';
+
+// Platform Services
+import { AppService } from './services/platform/app.service';
+import { AppSecretService } from './services/platform/app-secret.service';
+import { DomainService } from './services/platform/domain.service';
+import { WebhookService } from './services/platform/webhook.service';
+import { OAuthService } from './services/platform/oauth.service';
+
+// Governance Services
+import { RoleService } from './services/governance/role.service';
+import { PolicyService } from './services/governance/policy.service';
+
+// Admin / SOC Services
+import { AdminUserService } from './services/admin/admin-user.service';
+import { AuditService } from './services/admin/audit.service';
+import { SocService } from './services/soc/soc.service';
 
 // Command handlers
 import { SignupEmailHandler } from './commands/signup-email/signup-email.handler';
@@ -63,6 +79,16 @@ const SERVICES = [
   ProviderRoutingService,
   ExtensionDispatcherService,
   DynamicCommandRegistryService,
+  AppService,
+  AppSecretService,
+  DomainService,
+  WebhookService,
+  OAuthService,
+  RoleService,
+  PolicyService,
+  AdminUserService,
+  AuditService,
+  SocService,
 ];
 
 const COMMAND_HANDLERS = [
@@ -89,10 +115,6 @@ const QUERY_HANDLERS = [
   ListAuditLogsHandler,
 ];
 
-/**
- * ApplicationModule — wires all application services, command handlers,
- * query handlers, and sagas. Depends on infrastructure modules for ports.
- */
 @Module({
   imports: [
     RepositoriesModule,

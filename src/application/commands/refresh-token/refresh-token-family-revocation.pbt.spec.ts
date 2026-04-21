@@ -100,6 +100,11 @@ class InMemoryTokenRepository implements ITokenRepository {
     }
   }
 
+  async rotateRefreshToken(oldJti: string, tenantId: TenantId, newRecord: RefreshTokenRecord): Promise<void> {
+    await this.revokeToken(oldJti, tenantId);
+    await this.saveRefreshToken(newRecord);
+  }
+
   /** Core contract under test: marks ALL tokens in the family as revoked. */
   async revokeFamily(familyId: string, _tenantId: TenantId): Promise<void> {
     for (const [jti, record] of this.tokens.entries()) {
@@ -209,12 +214,22 @@ function buildFixture(): TestFixture {
     ),
   } as unknown as DistributedLockService;
 
+  const runtimeIdentityService = {
+    ensureForLegacyUser: jest.fn().mockImplementation((user) => Promise.resolve({
+      principalId: user.getId().toString(),
+      tenantId: user.getTenantId().toString(),
+      membershipId: 'membership-id',
+      actorId: 'actor-id',
+    })),
+  } as any;
+
   const handler = new RefreshTokenHandler(
     tokenRepo,
     outboxRepo,
     userRepo,
     tokenService,
     sessionService,
+    runtimeIdentityService,
     lockService,
   );
 
@@ -256,7 +271,7 @@ describe('Property 2 — Token family revocation completeness (Req 7.4)', () => 
           // Mint N refresh tokens for the same family
           const mintedTokens: Array<{ token: string; jti: string }> = [];
           for (let i = 0; i < familySize; i++) {
-            const { token, jti } = tokenService.mintRefreshToken(userId, tenantId, familyId);
+            const { token, jti } = await tokenService.mintRefreshToken(userId, tenantId, familyId);
             mintedTokens.push({ token, jti });
           }
 
@@ -334,12 +349,12 @@ describe('Property 2 — Token family revocation completeness (Req 7.4)', () => 
             const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
             // Attacked family: 2 tokens, first already rotated
-            const { token: rotatedToken, jti: rotatedJti } = tokenService.mintRefreshToken(
+            const { token: rotatedToken, jti: rotatedJti } = await tokenService.mintRefreshToken(
               userId,
               tenantId,
               attackedFamilyId,
             );
-            const { jti: activeJti } = tokenService.mintRefreshToken(
+            const { jti: activeJti } = await tokenService.mintRefreshToken(
               userId,
               tenantId,
               attackedFamilyId,
@@ -348,7 +363,7 @@ describe('Property 2 — Token family revocation completeness (Req 7.4)', () => 
             // Bystander family: N active tokens
             const bystanderJtis: string[] = [];
             for (let i = 0; i < bystanterFamilySize; i++) {
-              const { jti } = tokenService.mintRefreshToken(userId, tenantId, bystanderFamilyId);
+              const { jti } = await tokenService.mintRefreshToken(userId, tenantId, bystanderFamilyId);
               bystanderJtis.push(jti);
             }
 
@@ -438,7 +453,7 @@ describe('Property 2 — Token family revocation completeness (Req 7.4)', () => 
             const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
             // The token we will submit — not yet rotated
-            const { token: validToken, jti: validJti } = tokenService.mintRefreshToken(
+            const { token: validToken, jti: validJti } = await tokenService.mintRefreshToken(
               userId,
               tenantId,
               familyId,
@@ -447,7 +462,7 @@ describe('Property 2 — Token family revocation completeness (Req 7.4)', () => 
             // Additional tokens in the same family (all active)
             const extraJtis: string[] = [];
             for (let i = 0; i < extraTokenCount; i++) {
-              const { jti } = tokenService.mintRefreshToken(userId, tenantId, familyId);
+              const { jti } = await tokenService.mintRefreshToken(userId, tenantId, familyId);
               extraJtis.push(jti);
             }
 

@@ -252,6 +252,7 @@ interface MockTokenRepo {
   saveRefreshToken: AnyMock;
   findRefreshToken: AnyMock;
   revokeToken: AnyMock;
+  rotateRefreshToken: AnyMock;
   revokeFamily: AnyMock;
   revokeAllFamiliesByUser: AnyMock;
   isBlocklisted: AnyMock;
@@ -304,6 +305,7 @@ async function createTestModule(
     saveRefreshToken: jest.fn().mockResolvedValue(undefined),
     findRefreshToken: jest.fn().mockResolvedValue(null),
     revokeToken: jest.fn().mockResolvedValue(undefined),
+    rotateRefreshToken: jest.fn().mockResolvedValue(undefined),
     revokeFamily: jest.fn().mockResolvedValue(undefined),
     revokeAllFamiliesByUser: jest.fn().mockResolvedValue(undefined),
     isBlocklisted: jest.fn().mockResolvedValue(false),
@@ -700,7 +702,7 @@ describe('RefreshTokenHandler integration — token reuse detection', () => {
 
     // Mint a real refresh token JWT so parseRefreshToken succeeds
     const tokenService: TokenService = handles.module.get(TokenService);
-    const { token: refreshToken } = tokenService.mintRefreshToken(
+    const { token: refreshToken } = await tokenService.mintRefreshToken(
       activeUser.getId(),
       TenantId.from(TEST_TENANT_ID),
       familyId,
@@ -749,7 +751,7 @@ describe('RefreshTokenHandler integration — token reuse detection', () => {
     const familyId = randomUUID();
 
     const tokenService: TokenService = handles.module.get(TokenService);
-    const { token: refreshToken } = tokenService.mintRefreshToken(
+    const { token: refreshToken } = await tokenService.mintRefreshToken(
       activeUser.getId(),
       TenantId.from(TEST_TENANT_ID),
       familyId,
@@ -772,7 +774,7 @@ describe('RefreshTokenHandler integration — token reuse detection', () => {
     const familyId = randomUUID();
 
     const tokenService: TokenService = handles.module.get(TokenService);
-    const { token: refreshToken, jti } = tokenService.mintRefreshToken(
+    const { token: refreshToken, jti } = await tokenService.mintRefreshToken(
       activeUser.getId(),
       TenantId.from(TEST_TENANT_ID),
       familyId,
@@ -797,10 +799,10 @@ describe('RefreshTokenHandler integration — token reuse detection', () => {
     expect(result.accessToken).toBeDefined();
     expect(result.refreshToken).toBeDefined();
     expect(result.expiresIn).toBe(900);
-    expect(mockTokenRepo.revokeToken).toHaveBeenCalledWith(
+    expect(mockTokenRepo.rotateRefreshToken).toHaveBeenCalledWith(
       jti,
       expect.objectContaining({ toString: expect.any(Function) }),
+      expect.objectContaining({ familyId }),
     );
-    expect(mockTokenRepo.saveRefreshToken).toHaveBeenCalledTimes(1);
   });
 });
