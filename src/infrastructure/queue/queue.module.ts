@@ -1,3 +1,4 @@
+import { AuditExportWorker } from './workers/audit-export.worker';
 import { Module } from '@nestjs/common';
 import { BullMqQueueAdapter } from './bullmq-queue.adapter';
 import { OtpSendWorker } from './workers/otp-send.worker';
@@ -19,7 +20,7 @@ import { RepositoriesModule } from '../db/mysql/repositories.module';
  */
 @Module({
   imports: [OtpModule, RepositoriesModule],
-  providers: [
+  providers: [AuditExportWorker,
     BullMqQueueAdapter,
     {
       provide: INJECTION_TOKENS.QUEUE_PORT,

@@ -98,7 +98,7 @@ export class DynamicCommandRegistryService {
         });
       }
 
-      const accessToken = this.tokenService.mintAccessToken({
+      const accessToken = await this.tokenService.mintAccessToken({
         principalId: runtimeContext.principalId,
         tenantId: runtimeContext.tenantId,
         membershipId: runtimeContext.membershipId,

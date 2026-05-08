@@ -100,6 +100,43 @@ export class MysqlTokenRepository implements ITokenRepository {
     );
   }
 
+  async rotateRefreshToken(oldJti: string, tenantId: TenantId, newRecord: RefreshTokenRecord): Promise<void> {
+    const conn = await this.pool.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      await conn.execute(
+        `UPDATE refresh_tokens
+            SET revoked    = 1,
+                revoked_at = NOW()
+          WHERE jti       = ?
+            AND tenant_id = ?`,
+        [uuidToBuffer(oldJti), uuidToBuffer(tenantId.toString())],
+      );
+
+      await conn.execute(
+        `INSERT INTO refresh_tokens
+           (jti, family_id, user_id, tenant_id, revoked, expires_at, created_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?)`,
+        [
+          uuidToBuffer(newRecord.jti),
+          uuidToBuffer(newRecord.familyId),
+          uuidToBuffer(newRecord.userId),
+          uuidToBuffer(newRecord.tenantId),
+          newRecord.expiresAt,
+          newRecord.createdAt,
+        ],
+      );
+
+      await conn.commit();
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+  }
+
   async revokeFamily(familyId: string, tenantId: TenantId): Promise<void> {
     await this.pool.execute(
       `UPDATE refresh_tokens

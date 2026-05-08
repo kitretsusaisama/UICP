@@ -68,7 +68,7 @@ interface DynamicRequest {
 
 @ApiTags('Dynamic Modules')
 @ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('api/v1/modules')
+@Controller('v1/modules')
 @UseGuards(JwtAuthGuard)
 export class DynamicModuleController {
   constructor(

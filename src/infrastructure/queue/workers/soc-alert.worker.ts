@@ -1,48 +1,26 @@
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Worker, Job } from 'bullmq';
-import { IAlertRepository, SocAlert } from '../../../application/ports/driven/i-alert.repository';
+import { randomUUID, createHash } from 'crypto';
+import { ISocAlertRepository } from '../../../domain/repositories/soc/soc-alert.repository.interface';
+import { SocAlert } from '../../../domain/entities/soc/soc-alert.entity';
 import { INJECTION_TOKENS } from '../../../application/ports/injection-tokens';
-import { TenantId } from '../../../domain/value-objects/tenant-id.vo';
 import { QUEUE_CONCURRENCY, QUEUE_NAMES } from '../bullmq-queue.adapter';
+import { IMetricsPort } from '../../../application/ports/driven/i-metrics.port';
+import { TenantId } from '../../../domain/value-objects/tenant-id.vo';
+import Redis from 'ioredis';
 
-export interface SocAlertJobPayload {
-  alert: SocAlert;
-}
-
-/**
- * WebSocket gateway interface — injected optionally to avoid circular deps.
- * The concrete SocDashboardGateway implements this.
- */
-export interface ISocWebSocketGateway {
-  emitAlertCreated(tenantId: string, alert: SocAlert): void;
-}
-
-export const SOC_WS_GATEWAY = Symbol('SOC_WS_GATEWAY');
-
-/**
- * BullMQ worker for the `soc-alert` queue.
- *
- * - Concurrency: 3 (Section 11.2 bulkhead — low concurrency, security-critical)
- * - Persists SocAlert via IAlertRepository (INSERT-only, with HMAC checksum).
- * - Emits real-time WebSocket event to SOC dashboard (Req 12.6).
- *
- * Implements: Req 12.1, Req 12.6, Req 11.9 (threat score > 0.75 → SOC alert)
- */
 @Injectable()
 export class SocAlertWorker implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SocAlertWorker.name);
   private worker!: Worker;
-
+  private redisClient!: Redis;
   private readonly connection: { host: string; port: number; password?: string; tls?: object };
 
   constructor(
-    @Inject(INJECTION_TOKENS.ALERT_REPOSITORY)
-    private readonly alertRepository: IAlertRepository,
+    @Inject('SOC_ALERT_REPOSITORY') private readonly socAlertRepo: ISocAlertRepository,
     private readonly config: ConfigService,
-    @Optional()
-    @Inject(SOC_WS_GATEWAY)
-    private readonly wsGateway: ISocWebSocketGateway | null,
+    @Optional() @Inject(INJECTION_TOKENS.METRICS_PORT) private readonly metrics?: IMetricsPort,
   ) {
     this.connection = {
       host: this.config.get<string>('REDIS_HOST') ?? 'localhost',
@@ -53,21 +31,20 @@ export class SocAlertWorker implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleInit(): void {
+    this.redisClient = new Redis(this.connection);
+
     this.worker = new Worker(
       QUEUE_NAMES.SOC_ALERT,
-      async (job: Job<SocAlertJobPayload>) => this.process(job),
+      async (job: Job) => this.process(job),
       {
         connection: this.connection,
         concurrency: QUEUE_CONCURRENCY[QUEUE_NAMES.SOC_ALERT],
       },
     );
 
-    this.worker.on('completed', (job) => {
-      this.logger.debug({ jobId: job.id }, 'SOC alert job completed');
-    });
-
     this.worker.on('failed', (job, err) => {
       this.logger.error({ jobId: job?.id, err }, 'SOC alert job failed');
+      this.metrics?.increment('uicp_soc_alert_failures_total');
     });
 
     this.logger.log(`SocAlertWorker started (concurrency=${QUEUE_CONCURRENCY[QUEUE_NAMES.SOC_ALERT]})`);
@@ -75,31 +52,66 @@ export class SocAlertWorker implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     await this.worker.close();
+    await this.redisClient.quit();
     this.logger.log('SocAlertWorker stopped');
   }
 
-  // ── Job Processor ──────────────────────────────────────────────────────────
+  private async process(job: Job): Promise<void> {
+    const alert = job.data;
 
-  private async process(job: Job<SocAlertJobPayload>): Promise<void> {
-    const { alert } = job.data;
+    // Deduplication logic: prevents alert storms
+    // dedupe_key = SHA256(tenantId + type + target + time_bucket(hours))
+    const timeBucket = new Date().toISOString().slice(0, 13); // yyyy-mm-ddThh
+    const dedupeString = `${alert.tenantId}:${alert.type}:${alert.userId}:${timeBucket}`;
+    const dedupeKey = createHash('sha256').update(dedupeString).digest('hex');
 
-    this.logger.debug(
-      { jobId: job.id, alertId: alert.id, threatScore: alert.threatScore },
-      'Processing SOC alert job',
-    );
+    const socAlert = new SocAlert({
+      id: randomUUID(),
+      tenantId: alert.tenantId,
+      type: alert.type,
+      severity: alert.severity || 'MEDIUM',
+      dedupeKey,
+      payload: alert.payload || {},
+      status: 'OPEN',
+    });
 
-    // Persist the alert (INSERT-only, HMAC checksum verified on read — Req 12.1)
-    const tenantId = TenantId.from(alert.tenantId);
-    await this.alertRepository.save(alert);
+    try {
+      await this.socAlertRepo.save(socAlert);
+      this.metrics?.increment('uicp_soc_alerts_created_total', { severity: socAlert.severity });
 
-    // Emit real-time WebSocket event to SOC dashboard (Req 12.6)
-    if (this.wsGateway) {
-      this.wsGateway.emitAlertCreated(alert.tenantId, alert);
+      // Phase 6 AUTO-REMEDIATION Matrix
+      await this.autoRemediate(alert);
+    } catch (e: any) {
+      if (e.code === 'ER_DUP_ENTRY') {
+        // Idempotent success (Deduplication constraint fired)
+        this.logger.debug({ dedupeKey }, 'Duplicate alert dropped silently');
+        return;
+      }
+      throw e;
     }
+  }
 
-    this.logger.log(
-      { alertId: alert.id, tenantId: tenantId.toString(), threatScore: alert.threatScore },
-      'SOC alert persisted and emitted',
-    );
+  private async autoRemediate(alert: any) {
+    if (alert.type === 'TOKEN_REUSE' || alert.type === 'CREDENTIAL_STUFFING_DETECTED') {
+      this.logger.warn({ userId: alert.userId }, 'AUTO-REMEDIATION: Triggering global session revocation for compromised account');
+
+      const zsetKey = `user_sessions:${alert.userId}`;
+      const luaScript = `
+        local sids = redis.call('ZRANGE', KEYS[1], 0, -1)
+        for i, sid in ipairs(sids) do
+          local sessionKey = 'session:' .. sid
+          local jti = redis.call('HGET', sessionKey, 'jti')
+          if jti then
+             redis.call('SET', 'jti_block:' .. jti, '1', 'EX', 86400)
+          end
+          redis.call('DEL', sessionKey)
+        end
+        redis.call('DEL', KEYS[1])
+        redis.call('SET', 'user_block:' .. KEYS[1], '1', 'EX', 300) -- short TTL lock
+        return 1
+      `;
+
+      await this.redisClient.eval(luaScript, 1, zsetKey);
+    }
   }
 }

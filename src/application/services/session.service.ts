@@ -163,14 +163,20 @@ export class SessionService {
     deviceFingerprint: string,
   ): Promise<void> {
     const key = `trusted-devices:${tenantId.toString()}:{${userId.toString()}}`;
-    await this.cache.sadd(key, deviceFingerprint);
-    // Trusted devices expire after 90 days
-    await this.cache.expire(key, 90 * 24 * 3600);
 
-    this.logger.debug(
-      { userId: userId.toString(), deviceFingerprint: deviceFingerprint.substring(0, 8) },
-      'Trusted device added',
-    );
+    // WAR-GRADE DEFENSE: Phase 4 Graceful Degradation on Redis Failure
+    try {
+      await this.cache.sadd(key, deviceFingerprint);
+      // Trusted devices expire after 90 days
+      await this.cache.expire(key, 90 * 24 * 3600);
+
+      this.logger.debug(
+        { userId: userId.toString(), deviceFingerprint: deviceFingerprint.substring(0, 8) },
+        'Trusted device added',
+      );
+    } catch (err) {
+      this.logger.warn({ err, userId: userId.toString() }, 'Failed to add trusted device (Redis failure) — degrading gracefully');
+    }
   }
 
   /**
@@ -182,7 +188,14 @@ export class SessionService {
     deviceFingerprint: string,
   ): Promise<boolean> {
     const key = `trusted-devices:${tenantId.toString()}:{${userId.toString()}}`;
-    return this.cache.sismember(key, deviceFingerprint);
+    // WAR-GRADE DEFENSE: Phase 4 Graceful Degradation on Redis Failure
+    // If Redis is down, fail securely by returning false (device is not trusted).
+    try {
+      return await this.cache.sismember(key, deviceFingerprint);
+    } catch (err) {
+      this.logger.warn({ err, userId: userId.toString() }, 'Failed to check trusted device (Redis failure) — failing securely (false)');
+      return false;
+    }
   }
 
   /**
@@ -248,11 +261,24 @@ export class SessionService {
 
   async listTrustedDevices(principalId: string, tenantId: TenantId): Promise<string[]> {
     const key = `trusted-devices:${tenantId.toString()}:{${principalId}}`;
-    return this.cache.smembers(key);
+    // WAR-GRADE DEFENSE: Phase 4 Graceful Degradation on Redis Failure
+    // Non-critical path. If Redis is down, return an empty list instead of crashing the endpoint.
+    try {
+      return await this.cache.smembers(key);
+    } catch (err) {
+      this.logger.warn({ err, principalId }, 'Failed to list trusted devices (Redis failure) — degrading gracefully');
+      return [];
+    }
   }
 
   async removeTrustedDevice(principalId: string, tenantId: TenantId, deviceFingerprint: string): Promise<void> {
     const key = `trusted-devices:${tenantId.toString()}:{${principalId}}`;
-    await this.cache.srem(key, deviceFingerprint);
+    // WAR-GRADE DEFENSE: Phase 4 Graceful Degradation on Redis Failure
+    // Non-critical path.
+    try {
+      await this.cache.srem(key, deviceFingerprint);
+    } catch (err) {
+      this.logger.warn({ err, principalId }, 'Failed to remove trusted device (Redis failure) — degrading gracefully');
+    }
   }
 }

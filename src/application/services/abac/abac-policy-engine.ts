@@ -86,77 +86,11 @@ export class AbacJitCompiler {
   }
 
   /**
-   * Compile an AbacCondition to a native JS function.
-   * Falls back to the interpreter if code generation fails.
+   * Wraps the `AbacCondition` `evaluate()` interpreter method.
+   * Completely removes `new Function` Remote Code Execution vectors.
    */
   compile(condition: AbacCondition): CompiledConditionFn {
-    try {
-      const ast = condition.toJSON() as import('../../../domain/value-objects/abac-condition.vo').ConditionNode;
-      const body = `"use strict"; return (${this.generateExpr(ast)});`;
-      // eslint-disable-next-line no-new-func
-      const fn = new Function('ctx', body) as CompiledConditionFn;
-      // Validate the compiled function with an empty context to catch syntax errors
-      fn({ subject: {}, resource: {}, env: {} });
-      return fn;
-    } catch {
-      // Fallback: wrap the interpreter
-      return (ctx: EvaluationContext) => condition.evaluate(ctx);
-    }
-  }
-
-  private generateExpr(node: import('../../../domain/value-objects/abac-condition.vo').ConditionNode): string {
-    switch (node.kind) {
-      case 'logical':
-        if (node.op === 'AND') {
-          return `(${this.generateExpr(node.left)} && ${this.generateExpr(node.right)})`;
-        }
-        return `(${this.generateExpr(node.left)} || ${this.generateExpr(node.right)})`;
-
-      case 'not':
-        return `(!${this.generateExpr(node.operand)})`;
-
-      case 'comparison': {
-        const left = this.generateAttr(node.left);
-        const right = this.generateValue(node.right);
-        return this.generateComparison(left, node.operator, right);
-      }
-    }
-  }
-
-  private generateAttr(node: import('../../../domain/value-objects/abac-condition.vo').AttributeNode): string {
-    // Generate safe nested property access: ctx.subject?.role ?? undefined
-    const parts = node.path.split('.');
-    let expr = `ctx.${node.prefix}`;
-    for (const part of parts) {
-      expr += `?.[${JSON.stringify(part)}]`;
-    }
-    return expr;
-  }
-
-  private generateValue(node: import('../../../domain/value-objects/abac-condition.vo').LiteralNode | import('../../../domain/value-objects/abac-condition.vo').AttributeNode): string {
-    if (node.kind === 'literal') {
-      return JSON.stringify(node.value);
-    }
-    return this.generateAttr(node);
-  }
-
-  private generateComparison(left: string, op: string, right: string): string {
-    switch (op) {
-      case '==':  return `(${left} === ${right})`;
-      case '!=':  return `(${left} !== ${right})`;
-      case '<':   return `(${left} < ${right})`;
-      case '<=':  return `(${left} <= ${right})`;
-      case '>':   return `(${left} > ${right})`;
-      case '>=':  return `(${left} >= ${right})`;
-      case 'IN':
-        return `(Array.isArray(${right}) && ${right}.includes(${left}))`;
-      case 'NOT IN':
-        return `(!Array.isArray(${right}) || !${right}.includes(${left}))`;
-      case 'CONTAINS':
-        return `((typeof ${left} === 'string' && typeof ${right} === 'string' && ${left}.includes(${right})) || (Array.isArray(${left}) && ${left}.includes(${right})))`;
-      default:
-        return 'false';
-    }
+    return (ctx: EvaluationContext) => condition.evaluate(ctx);
   }
 }
 

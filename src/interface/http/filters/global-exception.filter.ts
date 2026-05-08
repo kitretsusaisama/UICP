@@ -94,14 +94,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     });
 
     res.status(status).json({
+      success: false,
       error: {
         code: errorCode,
         message,
         ...(details ? { details } : {}),
+        retryable: status === 429 || status === 503,
       },
       meta: {
         requestId,
         timestamp: new Date().toISOString(),
+        version: 'v1',
       },
     });
   }

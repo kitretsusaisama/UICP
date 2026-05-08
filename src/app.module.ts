@@ -24,6 +24,12 @@ import { OtpModule } from './infrastructure/otp/otp.module';
 import { HttpModule } from './interface/http/http.module';
 import { GrpcModule } from './interface/grpc/grpc.module';
 
+import { SocAlertWorker } from './infrastructure/queue/workers/soc-alert.worker';
+import { AuditWriteWorker } from './infrastructure/queue/workers/audit-write.worker';
+import { OtpSendWorker } from './infrastructure/queue/workers/otp-send.worker';
+import { OutboxRelayWorker } from './infrastructure/queue/workers/outbox-relay.worker';
+import { SocDashboardGateway } from './interface/ws/soc-dashboard.gateway';
+
 @Module({
   imports: [
     // ── Global config (Zod-validated) ──────────────────────────────────────
@@ -64,5 +70,12 @@ import { GrpcModule } from './interface/grpc/grpc.module';
     HttpModule,
     GrpcModule,
   ],
+  providers: [
+    SocAlertWorker,
+    AuditWriteWorker,
+    OtpSendWorker,
+    OutboxRelayWorker,
+    SocDashboardGateway,
+  ]
 })
 export class AppModule {}

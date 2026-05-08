@@ -156,7 +156,7 @@ export class LoginHandler {
       'policy.simulate',
       'policy.explain',
     ];
-    const { token: accessToken, jti: accessJti } = this.tokenService.mintAccessToken({
+    const { token: accessToken, jti: accessJti } = await this.tokenService.mintAccessToken({
       principalId: runtimeIdentity.principalId,
       tenantId: runtimeIdentity.tenantId,
       membershipId: runtimeIdentity.membershipId,
@@ -169,8 +169,8 @@ export class LoginHandler {
       policyVersion: 'legacy-policy-v1',
       manifestVersion: 'legacy-manifest-v1',
     });
-    const { token: refreshToken, jti: refreshJti, expiresAt: refreshExpiresAt } =
-      this.tokenService.mintRefreshToken(userId, tenantId, familyId, runtimeIdentity.membershipId, session.id.toString());
+    const { token: refreshToken, jti: refreshJti, expiresAt: refreshExpiresAt } = await
+      await this.tokenService.mintRefreshToken(userId, tenantId, familyId, runtimeIdentity.membershipId, session.id.toString());
 
     this.metrics?.increment('uicp_token_minted_total', { tenant_id: cmd.tenantId, type: 'access' });
     this.metrics?.increment('uicp_token_minted_total', { tenant_id: cmd.tenantId, type: 'refresh' });
