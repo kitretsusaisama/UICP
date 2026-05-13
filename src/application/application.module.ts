@@ -13,10 +13,14 @@ import { CredentialService } from './services/credential.service';
 import { TokenService } from './services/token.service';
 import { SessionService } from './services/session.service';
 import { OtpService } from './services/otp.service';
+import { OtpCostControllerService } from './services/otp/otp-cost-controller.service';
 import { DistributedLockService } from './services/distributed-lock.service';
 import { IdempotencyService } from './services/idempotency.service';
 import { RuntimeIdentityService } from './services/runtime-identity.service';
 import { RuntimeAuthorizationService } from './services/runtime-authorization.service';
+import { AuthSessionService } from './services/auth-session.service';
+import { UnifiedAuthService } from './services/unified-auth.service';
+import { TenantApiKeyService } from './services/tenant-api-key.service';
 
 // Platform Services
 import { AppService } from './services/platform/app.service';
@@ -33,6 +37,7 @@ import { PolicyService } from './services/governance/policy.service';
 import { AdminUserService } from './services/admin/admin-user.service';
 import { AuditService } from './services/admin/audit.service';
 import { SocService } from './services/soc/soc.service';
+import { MetricsService } from './services/platform-ops/metrics.service';
 
 // Command handlers
 import { SignupEmailHandler } from './commands/signup-email/signup-email.handler';
@@ -63,20 +68,35 @@ import { IdentityVerificationSaga } from './sagas/identity-verification.saga';
 import { AbacPolicyEngine } from './services/abac/abac-policy-engine';
 import { TenantManifestService } from './control-plane/services/tenant-manifest.service';
 import { ProviderRoutingService } from './control-plane/services/provider-routing.service';
+import { CommunicationRuntime } from './communication/communication-runtime.service';
+import { EmailRuntime } from './communication/email-runtime.service';
+import { ProviderHealthRuntime } from './communication/provider-health-runtime.service';
+import { TenantProviderResolver } from './communication/provider-resolver.service';
+import { WebhookRuntime } from './communication/webhook-runtime.service';
 import { ExtensionDispatcherService } from './dynamic-api/services/extension-dispatcher.service';
 import { DynamicCommandRegistryService } from './dynamic-api/services/dynamic-command-registry.service';
+import { ApiKeyService } from './services/api-key.service';
 
 const SERVICES = [
   CredentialService,
   TokenService,
   SessionService,
   OtpService,
+  OtpCostControllerService,
   DistributedLockService,
   IdempotencyService,
   RuntimeIdentityService,
   RuntimeAuthorizationService,
+  AuthSessionService,
+  UnifiedAuthService,
+  TenantApiKeyService,
   TenantManifestService,
   ProviderRoutingService,
+  TenantProviderResolver,
+  CommunicationRuntime,
+  EmailRuntime,
+  ProviderHealthRuntime,
+  WebhookRuntime,
   ExtensionDispatcherService,
   DynamicCommandRegistryService,
   AppService,
@@ -89,6 +109,8 @@ const SERVICES = [
   AdminUserService,
   AuditService,
   SocService,
+  MetricsService,
+  ApiKeyService,
 ];
 
 const COMMAND_HANDLERS = [
