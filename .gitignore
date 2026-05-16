@@ -16,3 +16,5 @@ packages/sdk/dist/
 # Misc
 .DS_Store
 *.log
+
+graphify-out/cache/
