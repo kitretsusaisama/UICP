@@ -128,6 +128,10 @@ export class RedisCacheAdapter implements ICachePort, OnModuleInit, OnModuleDest
     return result === 1;
   }
 
+  async ping(): Promise<string> {
+    return this.execute(() => this.client.ping() as Promise<string>);
+  }
+
   // ── Circuit Breaker ────────────────────────────────────────────────────────
 
   private async execute<T>(fn: () => Promise<T>): Promise<T> {

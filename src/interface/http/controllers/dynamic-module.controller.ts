@@ -3,26 +3,20 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   Param,
   Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
+import { z } from 'zod';
 import { TenantManifestService } from '../../../application/control-plane/services/tenant-manifest.service';
 import { ManifestSchemaField } from '../../../application/control-plane/contracts/effective-manifest.contract';
 import { DynamicCommandRegistryService } from '../../../application/dynamic-api/services/dynamic-command-registry.service';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-
-function parseTenantId(raw: string | undefined): string {
-  if (!raw) {
-    throw new BadRequestException({
-      error: { code: 'MISSING_TENANT_ID', message: 'X-Tenant-ID header is required' },
-    });
-  }
-  return raw;
-}
+import { UnifiedAuthGuard } from '../guards/unified-auth.guard';
+import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
+import { dynamicBodyDto } from '../dtos/dynamic-module/dynamic-module.dto';
+import { getTenantIdOrThrow } from '../tenant/tenant-resolver';
 
 function validateFields(body: Record<string, unknown>, schema: ManifestSchemaField[] = []): void {
   for (const field of schema) {
@@ -67,9 +61,8 @@ interface DynamicRequest {
 }
 
 @ApiTags('Dynamic Modules')
-@ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
 @Controller('v1/modules')
-@UseGuards(JwtAuthGuard)
+@UseGuards(UnifiedAuthGuard)
 export class DynamicModuleController {
   constructor(
     private readonly manifestService: TenantManifestService,
@@ -78,11 +71,11 @@ export class DynamicModuleController {
 
   @Get(':moduleKey/resources/:resourceKey')
   async getResource(
-    @Headers('x-tenant-id') rawTenantId: string,
     @Param('moduleKey') moduleKey: string,
     @Param('resourceKey') resourceKey: string,
+    @Req() req: DynamicRequest,
   ) {
-    const tenantId = parseTenantId(rawTenantId);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     const effectiveManifest = await this.manifestService.resolveEffectiveManifest(tenantId);
     const module = effectiveManifest.modules[moduleKey];
     const resource = module?.resources.find((item) => item.key === resourceKey);
@@ -104,13 +97,12 @@ export class DynamicModuleController {
 
   @Post(':moduleKey/commands/:commandKey')
   async executeCommand(
-    @Headers('x-tenant-id') rawTenantId: string,
     @Param('moduleKey') moduleKey: string,
     @Param('commandKey') commandKey: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(dynamicBodyDto)) body: z.infer<typeof dynamicBodyDto>,
     @Req() req: DynamicRequest,
   ) {
-    const tenantId = parseTenantId(rawTenantId);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     const effectiveManifest = await this.manifestService.resolveEffectiveManifest(tenantId);
     const module = effectiveManifest.modules[moduleKey];
     const command = module?.commands.find((item) => item.key === commandKey);
@@ -154,13 +146,12 @@ export class DynamicModuleController {
 
   @Post(':moduleKey/actions/:actionKey')
   async getAction(
-    @Headers('x-tenant-id') rawTenantId: string,
     @Param('moduleKey') moduleKey: string,
     @Param('actionKey') actionKey: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(dynamicBodyDto)) body: z.infer<typeof dynamicBodyDto>,
     @Req() req: DynamicRequest,
   ) {
-    const tenantId = parseTenantId(rawTenantId);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     const effectiveManifest = await this.manifestService.resolveEffectiveManifest(tenantId);
     const module = effectiveManifest.modules[moduleKey];
     const action = module?.actions.find((item) => item.key === actionKey);

@@ -13,6 +13,19 @@ const envSchema = z.object({
     .enum(['development', 'test', 'production'])
     .default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  PORT_POOL_SIZE: z.coerce.number().int().min(1).default(100),
+  SERVICE_NAME: z.string().default('uicp'),
+  SERVICE_VERSION: z.string().default('1.0.0'),
+  CORS_ORIGIN: z.string().optional(),
+  CORS_ORIGINS: z.string().optional(),
+  SWAGGER_ENABLED: z.string().optional(),
+  OTEL_ENABLED: z.string().optional(),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+  GRPC_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  INTERNAL_TOKEN: z.string().optional(),
+  RELEASE_MODE: z.string().optional(),
+  OIDC_ISSUER: z.string().url().optional(),
+  AUDIT_HMAC_KEY: z.string().optional(),
 
   // ── MySQL (Primary) ───────────────────────────────────────────────────
   DB_HOST: z.string().min(1),
@@ -22,6 +35,16 @@ const envSchema = z.object({
   DB_PASSWORD: z.string().min(1),
   DB_POOL_MIN: z.coerce.number().int().min(1).default(5),
   DB_POOL_MAX: z.coerce.number().int().min(1).default(20),
+  MYSQL_HOST: z.string().optional(),
+  MYSQL_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  MYSQL_DB: z.string().optional(),
+  MYSQL_USER: z.string().optional(),
+  MYSQL_PASSWORD: z.string().optional(),
+  MYSQL_REPLICA_HOST: z.string().optional(),
+  MYSQL_REPLICA_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  MYSQL_REPLICA_DB: z.string().optional(),
+  MYSQL_REPLICA_USER: z.string().optional(),
+  MYSQL_REPLICA_PASSWORD: z.string().optional(),
 
   // ── Redis ─────────────────────────────────────────────────────────────
   REDIS_HOST: z.string().min(1),
@@ -31,6 +54,7 @@ const envSchema = z.object({
     .string()
     .transform((v) => v === 'true')
     .default('false'),
+  REDIS_CLUSTER: z.string().optional(),
 
   // ── JWT (RS256) ───────────────────────────────────────────────────────
   JWT_PRIVATE_KEY: z.string().optional(),              // Raw PEM (local dev / CI)
@@ -84,12 +108,23 @@ const envSchema = z.object({
   MSG91_TEMPLATE_ID_IDENTITY_VERIFICATION: z.string().optional(),
   MSG91_TEMPLATE_ID_MFA: z.string().optional(),
   MSG91_TEMPLATE_ID_PASSWORD_RESET: z.string().optional(),
+  MSG91_WIDGET_ID: z.string().optional(),
+  MSG91_TOKEN_AUTH: z.string().optional(),
+  MSG91_FLOW_ID_IDENTITY: z.string().optional(),
+  MSG91_FLOW_ID_MFA: z.string().optional(),
+  MSG91_FLOW_ID_PASSWORD_RESET: z.string().optional(),
   RESEND_ENABLED: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM: z.string().email().optional(),
   MAILEROO_ENABLED: z.string().optional(),
   MAILEROO_API_KEY: z.string().optional(),
   MAILEROO_FROM: z.string().email().optional(),
+  WIDGET_SIGNATURE_SECRET: z.string().optional(),
+  BULLMQ_MAX_QUEUE_LEN: z.coerce.number().int().min(1).optional(),
+  BULLMQ_QUEUE_LEN_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
+  MOCK_KMS_SECRET: z.string().optional(),
+  TEST_PUBLIC_KEY: z.string().optional(),
+  VERSION: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

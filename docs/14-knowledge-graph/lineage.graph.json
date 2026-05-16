@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-lineage",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "user-entity",
+      "type": "entity",
+      "name": "User Entity",
+      "criticality": "CRITICAL",
+      "dependsOn": [],
+      "failureImpact": ["user-data", "identity"]
+    },
+    {
+      "id": "credential-entity",
+      "type": "entity",
+      "name": "Credential Entity",
+      "criticality": "CRITICAL",
+      "dependsOn": ["user-entity"],
+      "failureImpact": ["password-hash", "authentication"]
+    },
+    {
+      "id": "session-entity",
+      "type": "entity",
+      "name": "Session Entity",
+      "criticality": "CRITICAL",
+      "dependsOn": ["user-entity"],
+      "failureImpact": ["active-sessions", "session-data"]
+    },
+    {
+      "id": "api-key-entity",
+      "type": "entity",
+      "name": "API Key Entity",
+      "criticality": "HIGH",
+      "dependsOn": ["user-entity", "tenant-entity"],
+      "failureImpact": ["api-authentication", "service-keys"]
+    },
+    {
+      "id": "tenant-entity",
+      "type": "entity",
+      "name": "Tenant Entity",
+      "criticality": "CRITICAL",
+      "dependsOn": [],
+      "failureImpact": ["tenant-data", "multi-tenancy"]
+    },
+    {
+      "id": "manifest-entity",
+      "type": "entity",
+      "name": "Manifest Entity",
+      "criticality": "HIGH",
+      "dependsOn": ["tenant-entity"],
+      "failureImpact": ["tenant-configuration", "capabilities"]
+    },
+    {
+      "id": "audit-log-entity",
+      "type": "entity",
+      "name": "Audit Log Entity",
+      "criticality": "HIGH",
+      "dependsOn": ["user-entity", "tenant-entity"],
+      "failureImpact": ["audit-trails", "compliance"]
+    },
+    {
+      "id": "provider-routing-entity",
+      "type": "entity",
+      "name": "Provider Routing Entity",
+      "criticality": "HIGH",
+      "dependsOn": ["tenant-entity"],
+      "failureImpact": ["provider-selection", "routing"]
+    },
+    {
+      "id": "event-store-entity",
+      "type": "entity",
+      "name": "Event Store Entity",
+      "criticality": "MEDIUM",
+      "dependsOn": ["tenant-entity"],
+      "failureImpact": ["event-sourcing", "event-history"]
+    },
+    {
+      "id": "outbox-entity",
+      "type": "entity",
+      "name": "Outbox Entity",
+      "criticality": "HIGH",
+      "dependsOn": [],
+      "failureImpact": ["event-publishing", "message-delivery"]
+    },
+    {
+      "id": "extension-binding-entity",
+      "type": "entity",
+      "name": "Extension Binding Entity",
+      "criticality": "LOW",
+      "dependsOn": ["tenant-entity"],
+      "failureImpact": ["extensions", "hooks"]
+    },
+    {
+      "id": "abac-policy-entity",
+      "type": "entity",
+      "name": "ABAC Policy Entity",
+      "criticality": "MEDIUM",
+      "dependsOn": ["tenant-entity"],
+      "failureImpact": ["access-policies", "authorization"]
+    },
+    {
+      "id": "runtime-identity-entity",
+      "type": "entity",
+      "name": "Runtime Identity Entity",
+      "criticality": "HIGH",
+      "dependsOn": ["user-entity", "tenant-entity"],
+      "failureImpact": ["identity-resolution", "impersonation"]
+    },
+    {
+      "id": "role-entity",
+      "type": "entity",
+      "name": "Role Entity",
+      "criticality": "MEDIUM",
+      "dependsOn": ["tenant-entity"],
+      "failureImpact": ["rbac", "role-assignment"]
+    },
+    {
+      "id": "policy-entity",
+      "type": "entity",
+      "name": "Policy Entity",
+      "criticality": "MEDIUM",
+      "dependsOn": ["tenant-entity"],
+      "failureImpact": ["governance", "compliance"]
+    }
+  ],
+  "edges": [
+    { "from": "credential-entity", "to": "user-entity", "label": "belongs-to" },
+    { "from": "session-entity", "to": "user-entity", "label": "belongs-to" },
+    { "from": "api-key-entity", "to": "user-entity", "label": "belongs-to" },
+    { "from": "api-key-entity", "to": "tenant-entity", "label": "tenant-scoped" },
+    { "from": "manifest-entity", "to": "tenant-entity", "label": "configures" },
+    { "from": "audit-log-entity", "to": "user-entity", "label": "records" },
+    { "from": "audit-log-entity", "to": "tenant-entity", "label": "tenant-scoped" },
+    { "from": "provider-routing-entity", "to": "tenant-entity", "label": "routes-for" },
+    { "from": "event-store-entity", "to": "tenant-entity", "label": "tenant-scoped" },
+    { "from": "extension-binding-entity", "to": "tenant-entity", "label": "tenant-scoped" },
+    { "from": "abac-policy-entity", "to": "tenant-entity", "label": "tenant-scoped" },
+    { "from": "runtime-identity-entity", "to": "user-entity", "label": "resolves" },
+    { "from": "runtime-identity-entity", "to": "tenant-entity", "label": "tenant-scoped" },
+    { "from": "role-entity", "to": "tenant-entity", "label": "tenant-scoped" },
+    { "from": "policy-entity", "to": "tenant-entity", "label": "tenant-scoped" }
+  ]
+}

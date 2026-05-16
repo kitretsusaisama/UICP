@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClsModule } from 'nestjs-cls';
+import { randomUUID } from 'crypto';
 
 // Shared
 import { LoggerModule } from './shared/logger/logger.module';
@@ -11,11 +12,14 @@ import { MetricsModule } from './infrastructure/metrics/metrics.module';
 import { CacheModule } from './infrastructure/cache/cache.module';
 import { EncryptionModule } from './infrastructure/encryption/encryption.module';
 import { MysqlModule } from './infrastructure/db/mysql/mysql.module';
+import { ReadReplicaModule } from './infrastructure/db/mysql/read-replica.module';
 import { RepositoriesModule } from './infrastructure/db/mysql/repositories.module';
+import { DnsModule } from './infrastructure/dns/dns.module';
 import { SessionModule } from './infrastructure/session/session.module';
 import { LockModule } from './infrastructure/lock/lock.module';
 import { ResilienceModule } from './infrastructure/resilience/resilience.module';
 import { QueueModule } from './infrastructure/queue/queue.module';
+import { RateLimitModule } from './infrastructure/rate-limit/rate-limit.module';
 
 // Application
 import { ApplicationModule } from './application/application.module';
@@ -41,7 +45,7 @@ import { SocDashboardGateway } from './interface/ws/soc-dashboard.gateway';
       middleware: {
         mount: true,
         generateId: true,
-        idGenerator: () => crypto.randomUUID(),
+        idGenerator: () => randomUUID(),
       },
     }),
 
@@ -56,11 +60,14 @@ import { SocDashboardGateway } from './interface/ws/soc-dashboard.gateway';
     CacheModule,
     EncryptionModule,
     MysqlModule.forRoot(),
+    ReadReplicaModule.forRoot(),
     RepositoriesModule,
+    DnsModule,
     SessionModule,
     LockModule,
     ResilienceModule,
     QueueModule,
+    RateLimitModule,
     OtpModule,
 
     // ── Application layer ──────────────────────────────────────────────────

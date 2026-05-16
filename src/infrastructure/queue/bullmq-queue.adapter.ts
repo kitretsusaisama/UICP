@@ -7,43 +7,48 @@ import {
   RepeatableJobOptions,
 } from '../../application/ports/driven/i-queue.port';
 
-/**
- * Per-queue concurrency limits (Section 11.2 — Bulkhead Pattern).
- * Workers read this map to configure their own concurrency.
- */
 export const QUEUE_CONCURRENCY: Record<string, number> = {
-  'otp-send': 5,       // OTP delivery — low concurrency, high priority
-  'audit-write': 20,   // Audit log writes — high throughput, low priority
-  'soc-alert': 3,      // SOC alert processing — low concurrency
-  'outbox-relay': 10,  // Outbox relay — medium concurrency
-  'email-welcome': 5,  // Welcome emails — low priority
+  'otp-send': 5,
+  'otp-retry': 5,
+  'otp-fallback': 5,
+  'otp-cleanup': 2,
+  'email-send': 10,
+  'email-batch': 5,
+  'email-retry': 5,
+  'email-fallback': 5,
+  'email-webhook': 10,
+  'provider-health-check': 3,
+  'provider-circuit-probe': 2,
+  'communication-dead-letter': 2,
+  'audit-write': 20,
+  'soc-alert': 3,
+  'outbox-relay': 10,
+  'email-welcome': 5,
 };
 
-/**
- * Queue names as constants to avoid magic strings.
- */
 export const QUEUE_NAMES = {
   OTP_SEND: 'otp-send',
+  OTP_RETRY: 'otp-retry',
+  OTP_FALLBACK: 'otp-fallback',
+  OTP_CLEANUP: 'otp-cleanup',
+  EMAIL_SEND: 'email-send',
+  EMAIL_BATCH: 'email-batch',
+  EMAIL_RETRY: 'email-retry',
+  EMAIL_FALLBACK: 'email-fallback',
+  EMAIL_WEBHOOK: 'email-webhook',
+  PROVIDER_HEALTH_CHECK: 'provider-health-check',
+  PROVIDER_CIRCUIT_PROBE: 'provider-circuit-probe',
+  COMMUNICATION_DEAD_LETTER: 'communication-dead-letter',
   AUDIT_WRITE: 'audit-write',
   SOC_ALERT: 'soc-alert',
   OUTBOX_RELAY: 'outbox-relay',
   EMAIL_WELCOME: 'email-welcome',
 } as const;
 
-/**
- * BullMQ queue adapter implementing IQueuePort.
- *
- * - Wraps BullMQ `Queue` instances with per-queue concurrency limits (Section 11.2).
- * - `enqueueRepeatable()` registers cron-scheduled jobs (idempotent by jobKey).
- * - Queues are lazily created on first use and cached.
- *
- * Implements: Req 4.5, Req 15 (resilience via BullMQ retry/backoff)
- */
 @Injectable()
 export class BullMqQueueAdapter implements IQueuePort, OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(BullMqQueueAdapter.name);
   private readonly queues = new Map<string, Queue>();
-
   private readonly connection: { host: string; port: number; password?: string; tls?: object };
 
   constructor(private readonly config: ConfigService) {
@@ -56,7 +61,6 @@ export class BullMqQueueAdapter implements IQueuePort, OnModuleInit, OnModuleDes
   }
 
   onModuleInit(): void {
-    // Pre-create all known queues so they are ready before first use
     for (const name of Object.values(QUEUE_NAMES)) {
       this.getOrCreateQueue(name);
     }
@@ -64,56 +68,32 @@ export class BullMqQueueAdapter implements IQueuePort, OnModuleInit, OnModuleDes
   }
 
   async onModuleDestroy(): Promise<void> {
-    await Promise.all([...this.queues.values()].map((q) => q.close()));
+    await Promise.all([...this.queues.values()].map((queue) => queue.close()));
     this.logger.log('BullMQ queues closed');
   }
 
-  // ── IQueuePort ─────────────────────────────────────────────────────────────
-
-  /**
-   * Enqueue a one-time job on the specified queue.
-   */
   async enqueue(
     queue: string,
     payload: Record<string, unknown>,
     options?: EnqueueOptions,
   ): Promise<void> {
     const q = this.getOrCreateQueue(queue);
+    await this.assertQueueHasCapacity(q, queue);
 
     const jobOptions: JobsOptions = {
       priority: options?.priority,
       delay: options?.delayMs,
       attempts: options?.maxAttempts ?? 3,
       backoff: { type: 'exponential', delay: 1_000 },
+      jobId: options?.idempotencyKey,
       removeOnComplete: { count: 1_000 },
       removeOnFail: { count: 5_000 },
     };
 
-    // WAR-GRADE DEFENSE: Queue Collapse
-    // Bound the queue to prevent Redis OOM and infinite backlogs if workers die or DB is lagging.
-    // E.g., Max 50,000 pending jobs. After that, we drop new jobs or fail them.
-    const maxQueueLen = this.config.get<number>('BULLMQ_MAX_QUEUE_LEN') ?? 50000;
-    const sampleRate = this.config.get<number>('BULLMQ_QUEUE_LEN_SAMPLE_RATE') ?? 100;
-    if (sampleRate > 0 && Math.floor(Math.random() * sampleRate) === 0) {
-      const count = await q.getJobCountByTypes('wait', 'paused', 'delayed');
-      if (count >= maxQueueLen) {
-        this.logger.error({ queue, maxQueueLen, count }, 'QUEUE COLLAPSE DEFENSE: Queue is full, dropping job');
-        const error: any = new Error(`QUEUE_FULL: The queue ${queue} has reached its maximum capacity of ${maxQueueLen}`);
-        error.code = 'QUEUE_FULL';
-        throw error;
-      }
-    }, 'QUEUE COLLAPSE DEFENSE: Queue is full, dropping job');
-      throw new Error(`QUEUE_FULL: The queue ${queue} has reached its maximum capacity of ${maxQueueLen}`);
-    }
-
     await q.add(queue, payload, jobOptions);
-    this.logger.debug({ queue, payload }, 'Job enqueued');
+    this.logger.debug({ queue }, 'Job enqueued');
   }
 
-  /**
-   * Register or update a repeatable (cron-scheduled) job.
-   * Idempotent — calling with the same `jobKey` updates the existing schedule.
-   */
   async enqueueRepeatable(
     queue: string,
     payload: Record<string, unknown>,
@@ -123,7 +103,7 @@ export class BullMqQueueAdapter implements IQueuePort, OnModuleInit, OnModuleDes
 
     await q.add(options.jobKey, payload, {
       repeat: { pattern: options.cron },
-      jobId: options.jobKey, // deduplication key
+      jobId: options.jobKey,
       attempts: options.maxAttempts ?? 3,
       backoff: { type: 'exponential', delay: 1_000 },
       removeOnComplete: { count: 100 },
@@ -133,12 +113,34 @@ export class BullMqQueueAdapter implements IQueuePort, OnModuleInit, OnModuleDes
     this.logger.log({ queue, jobKey: options.jobKey, cron: options.cron }, 'Repeatable job registered');
   }
 
-  // ── Internal ───────────────────────────────────────────────────────────────
+  getQueue(name: string): Queue {
+    return this.getOrCreateQueue(name);
+  }
+
+  private async assertQueueHasCapacity(queue: Queue, name: string): Promise<void> {
+    const maxQueueLen = this.config.get<number>('BULLMQ_MAX_QUEUE_LEN') ?? 50_000;
+    const sampleRate = this.config.get<number>('BULLMQ_QUEUE_LEN_SAMPLE_RATE') ?? 100;
+    if (sampleRate <= 0 || Math.floor(Math.random() * sampleRate) !== 0) {
+      return;
+    }
+
+    const count = await queue.getJobCountByTypes('wait', 'paused', 'delayed');
+    if (count < maxQueueLen) {
+      return;
+    }
+
+    this.logger.error({ queue: name, maxQueueLen, count }, 'Queue capacity exceeded');
+    const error: Error & { code?: string } = new Error(
+      `QUEUE_FULL: The queue ${name} has reached its maximum capacity of ${maxQueueLen}`,
+    );
+    error.code = 'QUEUE_FULL';
+    throw error;
+  }
 
   private getOrCreateQueue(name: string): Queue {
-    let q = this.queues.get(name);
-    if (!q) {
-      q = new Queue(name, {
+    let queue = this.queues.get(name);
+    if (!queue) {
+      queue = new Queue(name, {
         connection: this.connection,
         defaultJobOptions: {
           removeOnComplete: { count: 1_000 },
@@ -148,18 +150,13 @@ export class BullMqQueueAdapter implements IQueuePort, OnModuleInit, OnModuleDes
         },
       });
 
-      q.on('error', (err) => {
+      queue.on('error', (err) => {
         this.logger.error({ queue: name, err }, 'BullMQ queue error');
       });
 
-      this.queues.set(name, q);
+      this.queues.set(name, queue);
       this.logger.debug({ queue: name }, 'BullMQ queue created');
     }
-    return q;
-  }
-
-  /** Expose a queue instance for workers that need direct access (e.g. outbox relay). */
-  getQueue(name: string): Queue {
-    return this.getOrCreateQueue(name);
+    return queue;
   }
 }

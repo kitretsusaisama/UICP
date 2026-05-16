@@ -32,10 +32,11 @@ export class ZodValidationPipe implements PipeTransform {
     return result.data;
   }
 
-  private formatErrors(error: ZodError): Array<{ path: string; message: string }> {
+  private formatErrors(error: ZodError): Array<{ path: string; message: string; code: string }> {
     return error.errors.map((issue) => ({
       path: issue.path.join('.') || '(root)',
       message: issue.message,
+      code: issue.code,
     }));
   }
 }

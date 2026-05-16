@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-replay",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "event-store-replay",
+      "type": "replay",
+      "name": "Event Store Replay",
+      "criticality": "HIGH",
+      "maxReplayWindow": "24h",
+      "dependsOn": ["event-store-repository", "event-handlers"],
+      "failureImpact": ["event-recovery", "state-reconstruction"]
+    },
+    {
+      "id": "outbox-replay",
+      "type": "replay",
+      "name": "Outbox Message Replay",
+      "criticality": "HIGH",
+      "maxReplayWindow": "72h",
+      "dependsOn": ["outbox-repository", "message-router"],
+      "failureImpact": ["message-delivery", "event-propagation"]
+    },
+    {
+      "id": "audit-log-replay",
+      "type": "replay",
+      "name": "Audit Log Replay",
+      "criticality": "MEDIUM",
+      "maxReplayWindow": "30d",
+      "dependsOn": ["audit-log-repository", "audit-aggregator"],
+      "failureImpact": ["audit-recovery", "compliance-reconstruction"]
+    },
+    {
+      "id": "session-state-replay",
+      "type": "replay",
+      "name": "Session State Replay",
+      "criticality": "HIGH",
+      "maxReplayWindow": "24h",
+      "dependsOn": ["auth-session-repository", "session-state-store"],
+      "failureImpact": ["session-recovery", "state-restoration"]
+    },
+    {
+      "id": "token-replay",
+      "type": "replay",
+      "name": "Token Replay (JWT Refresh)",
+      "criticality": "HIGH",
+      "maxReplayWindow": "7d",
+      "dependsOn": ["token-service", "token-repository"],
+      "failureImpact": ["token-renewal", "access-continuity"]
+    },
+    {
+      "id": "queue-message-replay",
+      "type": "replay",
+      "name": "Queue Message Replay from DLQ",
+      "criticality": "HIGH",
+      "maxReplayWindow": "7d",
+      "dependsOn": ["dead-letter-queue", "queue-adapter"],
+      "failureImpact": ["failed-message-retry", "processing-recovery"]
+    },
+    {
+      "id": "webhook-replay",
+      "type": "replay",
+      "name": "Webhook Retry Replay",
+      "criticality": "MEDIUM",
+      "maxReplayWindow": "24h",
+      "dependsOn": ["webhook-service", "webhook-repository"],
+      "failureImpact": ["webhook-delivery", "integration-recovery"]
+    },
+    {
+      "id": "notification-replay",
+      "type": "replay",
+      "name": "Notification Replay (SMS/Email)",
+      "criticality": "HIGH",
+      "maxReplayWindow": "48h",
+      "dependsOn": ["notification-dispatcher", "notification-history"],
+      "failureImpact": ["notification-delivery", "delivery-recovery"]
+    },
+    {
+      "id": "api-key-rotation-replay",
+      "type": "replay",
+      "name": "API Key Rotation Replay",
+      "criticality": "MEDIUM",
+      "maxReplayWindow": "30d",
+      "dependsOn": ["api-key-service", "api-key-repository"],
+      "failureImpact": ["key-rotation", "key-recovery"]
+    },
+    {
+      "id": "rate-limit-replay",
+      "type": "replay",
+      "name": "Rate Limit Counter Replay",
+      "criticality": "MEDIUM",
+      "maxReplayWindow": "1h",
+      "dependsOn": ["redis-rate-limiter", "redis-cluster"],
+      "failureImpact": ["rate-limit-accuracy", "throttling"]
+    },
+    {
+      "id": "distributed-lock-replay",
+      "type": "replay",
+      "name": "Stale Lock Cleanup Replay",
+      "criticality": "HIGH",
+      "maxReplayWindow": "10m",
+      "dependsOn": ["redis-lock", "lock-cleanup-service"],
+      "failureImpact": ["deadlocks", "stale-locks"]
+    }
+  ],
+  "edges": [
+    { "from": "event-store-replay", "to": "event-handlers", "label": "replays" },
+    { "from": "outbox-replay", "to": "message-router", "label": "re-routes" },
+    { "from": "audit-log-replay", "to": "audit-aggregator", "label": "rebuilds" },
+    { "from": "session-state-replay", "to": "session-state-store", "label": "restores" },
+    { "from": "token-replay", "to": "token-repository", "label": "refreshes" },
+    { "from": "queue-message-replay", "to": "queue-adapter", "label": "re-queues" },
+    { "from": "webhook-replay", "to": "webhook-service", "label": "re-sends" },
+    { "from": "notification-replay", "to": "notification-dispatcher", "label": "re-dispatches" },
+    { "from": "distributed-lock-replay", "to": "lock-cleanup-service", "label": "cleans" }
+  ]
+}

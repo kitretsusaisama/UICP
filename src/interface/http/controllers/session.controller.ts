@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -8,10 +7,14 @@ import {
   Logger,
   NotFoundException,
   Param,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { API_VERSION } from './user.controller';
+
+import { getTenantIdOrThrow } from '../tenant/tenant-resolver';
 
 import { GetUserSessionsQuery } from '../../../application/queries/get-user-sessions/get-user-sessions.query';
 import { GetUserSessionsHandler } from '../../../application/queries/get-user-sessions/get-user-sessions.handler';
@@ -19,32 +22,12 @@ import { SessionService } from '../../../application/services/session.service';
 import { SessionId } from '../../../domain/value-objects/session-id.vo';
 import { UserId } from '../../../domain/value-objects/user-id.vo';
 import { TenantId } from '../../../domain/value-objects/tenant-id.vo';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { UnifiedAuthGuard } from '../guards/unified-auth.guard';
 
 interface AuthRequest {
   headers: Record<string, string | string[] | undefined>;
   userId: string;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function parseTenantId(raw: string | undefined): string {
-  if (!raw) {
-    throw new BadRequestException({
-      error: { code: 'MISSING_TENANT_ID', message: 'X-Tenant-ID header is required' },
-    });
-  }
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidRe.test(raw)) {
-    throw new BadRequestException({
-      error: { code: 'INVALID_TENANT_ID', message: `Invalid tenant ID: ${raw}` },
-    });
-  }
-  return raw;
-}
-
-function parseTenantIdVo(raw: string | undefined): TenantId {
-  return TenantId.from(parseTenantId(raw));
+  tenantId?: string;
 }
 
 // ── Controller ────────────────────────────────────────────────────────────────
@@ -53,18 +36,17 @@ function parseTenantIdVo(raw: string | undefined): TenantId {
  * Session self-service API — users manage their own sessions and trusted devices.
  *
  * Routes:
- *   GET    /users/me/sessions          — list active sessions
- *   DELETE /users/me/sessions/:id      — revoke a specific session
- *   GET    /users/me/devices           — list trusted devices
- *   DELETE /users/me/devices/:id       — remove a trusted device
+ *   GET    /v1/users/me/sessions          — list active sessions
+ *   DELETE /v1/users/me/sessions/:id      — revoke a specific session
+ *   GET    /v1/users/me/devices           — list trusted devices
+ *   DELETE /v1/users/me/devices/:id       — remove a trusted device
  *
  * Implements: Req 8.7, Req 8.8
  */
 @ApiTags('Sessions')
 @ApiBearerAuth('bearer')
-@ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('users/me')
-@UseGuards(JwtAuthGuard)
+@Controller(API_VERSION + '/users/me')
+@UseGuards(UnifiedAuthGuard)
 export class SessionController {
   private readonly logger = new Logger(SessionController.name);
 
@@ -76,23 +58,36 @@ export class SessionController {
   // ── GET /users/me/sessions ─────────────────────────────────────────────────
 
   @Get('sessions')
-  async listSessions(@Req() req: AuthRequest) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
-    const sessions = await this.getSessionsHandler.handle(
-      new GetUserSessionsQuery(req.userId, tenantId, req.userId),
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Max results (1-100)' })
+  @ApiQuery({ name: 'cursor', required: false, type: String, description: 'Pagination cursor' })
+  async listSessions(
+    @Req() req: AuthRequest,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
+    const parsedLimit = limit ? Math.min(Math.max(1, parseInt(limit, 10) || 20), 100) : 20;
+    const result = await this.getSessionsHandler.handle(
+      new GetUserSessionsQuery(req.userId, tenantId, req.userId, parsedLimit, cursor),
     );
-    return { data: sessions };
+    return {
+      data: result.data,
+      meta: {
+        has_next: result.hasMore,
+        next_cursor: result.nextCursor,
+      },
+    };
   }
 
   // ── DELETE /users/me/sessions/:id ─────────────────────────────────────────
 
   @Delete('sessions/:id')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async revokeSession(
     @Param('id') sessionId: string,
     @Req() req: AuthRequest,
   ) {
-    const tenantId = parseTenantIdVo(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = TenantId.from(getTenantIdOrThrow(req as unknown as Record<string, unknown>));
 
     // Verify the session belongs to the requesting user before revoking
     const sessions = await this.getSessionsHandler.handle(
@@ -111,15 +106,14 @@ export class SessionController {
 
     await this.sessionService.invalidate(SessionId.from(sessionId), tenantId);
     this.logger.log({ sessionId, userId: req.userId }, 'Session revoked by user');
-
-    return { data: { revoked: true, sessionId } };
+    // Return 204 No Content - no response body per REST convention
   }
 
   // ── GET /users/me/devices ──────────────────────────────────────────────────
 
   @Get('devices')
   async listDevices(@Req() req: AuthRequest) {
-    const tenantId = parseTenantIdVo(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = TenantId.from(getTenantIdOrThrow(req as unknown as Record<string, unknown>));
     const userId = UserId.from(req.userId);
     // Trusted devices are stored as a Redis set — list all members
     const members = await this.sessionService['cache'].smembers(
@@ -132,15 +126,15 @@ export class SessionController {
   // ── DELETE /users/me/devices/:id ───────────────────────────────────────────
 
   @Delete('devices/:id')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async removeDevice(
     @Param('id') deviceFingerprint: string,
     @Req() req: AuthRequest,
   ) {
-    const tenantId = parseTenantIdVo(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = TenantId.from(getTenantIdOrThrow(req as unknown as Record<string, unknown>));
     const key = `trusted-devices:${tenantId.toString()}:{${req.userId}}`;
     await this.sessionService['cache'].srem(key, deviceFingerprint);
     this.logger.log({ deviceFingerprint, userId: req.userId }, 'Trusted device removed');
-    return { data: { removed: true, deviceFingerprint } };
+    // Return 204 No Content - no response body per REST convention
   }
 }

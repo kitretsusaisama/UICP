@@ -16,6 +16,9 @@ interface CachedResponse {
   statusCode: number;
   body: unknown;
   createdAt: string;
+  meta?: {
+    idempotencyState?: 'PENDING' | 'COMPLETED';
+  };
 }
 
 /**

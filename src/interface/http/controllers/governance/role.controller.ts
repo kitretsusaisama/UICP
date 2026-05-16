@@ -1,15 +1,20 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { z } from 'zod';
 import { RoleService } from '../../../../application/services/governance/role.service';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
+import { UnifiedAuthGuard } from '../../guards/unified-auth.guard';
+import { ZodValidationPipe } from '../../pipes/zod-validation.pipe';
+import { createRoleDto, assignRoleDto } from '../../dtos/governance/role.dto';
 
 @Controller('v1/roles')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(UnifiedAuthGuard)
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
   @Post()
-  async createRole(@Req() req: any, @Body() body: { name: string; permissions: string[]; description?: string }) {
+  async createRole(
+    @Req() req: any,
+    @Body(new ZodValidationPipe(createRoleDto)) body: z.infer<typeof createRoleDto>,
+  ) {
     const tenantId = req.tenantId;
     const role = await this.roleService.createRole(tenantId, body.name, body.permissions, body.description);
 
@@ -32,7 +37,10 @@ export class RoleController {
   }
 
   @Post('assign')
-  async assignRole(@Req() req: any, @Body() body: { userId: string; roleId: string; expiresAt?: string }) {
+  async assignRole(
+    @Req() req: any,
+    @Body(new ZodValidationPipe(assignRoleDto)) body: z.infer<typeof assignRoleDto>,
+  ) {
     const tenantId = req.tenantId;
     const assignedBy = req.user.sub;
 

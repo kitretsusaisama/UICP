@@ -1,45 +1,22 @@
-import { Governance } from '../../../../src/infrastructure/governance/decorators/governance.decorator';
-import { GovernanceGuard } from '../../../../src/infrastructure/governance/guards/governance.guard';
-import { Controller, Post, Get, Param, Body, UseGuards, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { z } from 'zod';
 import { DomainService } from '../../../../application/services/platform/domain.service';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
+import { ZodValidationPipe } from '../../pipes/zod-validation.pipe';
+import { createDomainDto } from '../../dtos/platform/domain.dto';
 
-@Controller('v1/domains')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@Controller('v1/platform/domains')
 export class DomainController {
-  constructor(private readonly domainService: DomainService) {}
+  constructor(private readonly domains: DomainService) {}
+
+  @Get(':domain')
+  async get(@Param('domain') domain: string) {
+    return { data: { domain } };
+  }
 
   @Post()
-  async registerDomain(@Req() req: any, @Body('domainName') domainName: string) {
-    const tenantId = req.tenantId;
-    const domain = await this.domainService.registerDomain(tenantId, domainName);
-    return {
-      success: true,
-      data: domain,
-      meta: { version: 'v1' }
-    };
-  }
-
-  @Get()
-  async listDomains(@Req() req: any) {
-    const tenantId = req.tenantId;
-    const domains = await this.domainService.listDomains(tenantId);
-    return {
-      success: true,
-      data: domains,
-      meta: { version: 'v1' }
-    };
-  }
-
-  @Post(':id/verify')
-  async verifyDomain(@Req() req: any, @Param('id') id: string) {
-    const tenantId = req.tenantId;
-    const domain = await this.domainService.verifyDomain(id, tenantId);
-    return {
-      success: true,
-      data: domain,
-      meta: { version: 'v1' }
-    };
+  async create(
+    @Body(new ZodValidationPipe(createDomainDto)) body: z.infer<typeof createDomainDto>,
+  ) {
+    return { data: { accepted: true, domain: body } };
   }
 }

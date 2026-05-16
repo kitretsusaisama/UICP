@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 
 @Injectable()
 export class InternalServiceGuard implements CanActivate {

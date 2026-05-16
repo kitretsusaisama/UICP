@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-providers",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "msg91-adapter",
+      "type": "provider",
+      "name": "MSG91 SMS Provider",
+      "category": "SMS",
+      "criticality": "HIGH",
+      "retryPolicy": "exponential",
+      "maxRetries": 3,
+      "dependsOn": ["provider-health-runtime"],
+      "failureImpact": ["sms-delivery", "otp-delivery"]
+    },
+    {
+      "id": "resend-adapter",
+      "type": "provider",
+      "name": "Resend Email Provider",
+      "category": "EMAIL",
+      "criticality": "HIGH",
+      "retryPolicy": "exponential",
+      "maxRetries": 3,
+      "dependsOn": ["provider-health-runtime"],
+      "failureImpact": ["email-delivery", "transactional-email"]
+    },
+    {
+      "id": "maileroo-adapter",
+      "type": "provider",
+      "name": "Maileroo Email Provider",
+      "category": "EMAIL",
+      "criticality": "MEDIUM",
+      "retryPolicy": "exponential",
+      "maxRetries": 3,
+      "dependsOn": ["provider-health-runtime"],
+      "failureImpact": ["email-delivery"]
+    },
+    {
+      "id": "smtp-adapter",
+      "type": "provider",
+      "name": "SMTP Email Adapter",
+      "category": "EMAIL",
+      "criticality": "MEDIUM",
+      "retryPolicy": "exponential",
+      "maxRetries": 2,
+      "dependsOn": ["provider-health-runtime"],
+      "failureImpact": ["email-delivery", "bulk-email"]
+    },
+    {
+      "id": "firebase-otp",
+      "type": "provider",
+      "name": "Firebase OTP Provider",
+      "category": "OTP",
+      "criticality": "HIGH",
+      "retryPolicy": "immediate",
+      "maxRetries": 1,
+      "dependsOn": ["firebase-service"],
+      "failureImpact": ["otp-delivery", "phone-auth"]
+    },
+    {
+      "id": "msg91-widget",
+      "type": "provider",
+      "name": "MSG91 Widget Provider",
+      "category": "WIDGET",
+      "criticality": "MEDIUM",
+      "retryPolicy": "none",
+      "maxRetries": 0,
+      "dependsOn": ["msg91-adapter"],
+      "failureImpact": ["widget-otp", "captive-portal"]
+    },
+    {
+      "id": "oidc-provider",
+      "type": "provider",
+      "name": "OIDC Identity Provider",
+      "category": "IDENTITY",
+      "criticality": "HIGH",
+      "retryPolicy": "linear",
+      "maxRetries": 3,
+      "dependsOn": ["external-idp"],
+      "failureImpact": ["sso-login", "oauth-flow"]
+    },
+    {
+      "id": "saml-provider",
+      "type": "provider",
+      "name": "SAML SSO Provider",
+      "category": "IDENTITY",
+      "criticality": "HIGH",
+      "retryPolicy": "linear",
+      "maxRetries": 3,
+      "dependsOn": ["external-idp"],
+      "failureImpact": ["saml-sso", "enterprise-sso"]
+    },
+    {
+      "id": "provider-health-runtime",
+      "type": "runtime",
+      "name": "Provider Health Runtime",
+      "criticality": "HIGH",
+      "dependsOn": ["provider-registry", "health-check-worker"],
+      "failureImpact": ["provider-monitoring", "failover-decisions"]
+    },
+    {
+      "id": "provider-registry",
+      "type": "registry",
+      "name": "Provider Registry Service",
+      "criticality": "HIGH",
+      "dependsOn": ["mysql-provider-routing-repository"],
+      "failureImpact": ["provider-discovery", "provider-configuration"]
+    }
+  ],
+  "edges": [
+    { "from": "msg91-adapter", "to": "provider-health-runtime", "label": "health-check" },
+    { "from": "resend-adapter", "to": "provider-health-runtime", "label": "health-check" },
+    { "from": "maileroo-adapter", "to": "provider-health-runtime", "label": "health-check" },
+    { "from": "smtp-adapter", "to": "provider-health-runtime", "label": "health-check" },
+    { "from": "provider-registry", "to": "msg91-adapter", "label": "registers" },
+    { "from": "provider-registry", "to": "resend-adapter", "label": "registers" },
+    { "from": "provider-registry", "to": "maileroo-adapter", "label": "registers" },
+    { "from": "oidc-provider", "to": "provider-health-runtime", "label": "health-check" },
+    { "from": "saml-provider", "to": "provider-health-runtime", "label": "health-check" }
+  ]
+}

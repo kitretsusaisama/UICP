@@ -1,5 +1,7 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, Logger } from '@nestjs/common';
 import * as mysql from 'mysql2/promise';
+
+const logger = new Logger('DatabaseModule');
 
 @Global()
 @Module({
@@ -23,7 +25,7 @@ import * as mysql from 'mysql2/promise';
           const conn = await pool.getConnection();
           conn.release();
         } catch (error: any) {
-           console.warn('WRITER_POOL initialization warning:', error.message);
+           logger.warn('WRITER_POOL initialization warning: ' + error.message);
         }
 
         return pool;
@@ -49,7 +51,7 @@ import * as mysql from 'mysql2/promise';
           const conn = await pool.getConnection();
           conn.release();
         } catch (error: any) {
-           console.warn('READER_POOL initialization warning:', error.message);
+           logger.warn('READER_POOL initialization warning: ' + error.message);
         }
 
         return pool;

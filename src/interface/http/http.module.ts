@@ -24,6 +24,7 @@ import { TenantApiKeyController } from './controllers/tenant-api-key.controller'
 import { ApiKeyController } from './controllers/api-key.controller';
 import { ApiKeyGuard } from './guards/api-key.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { UnifiedAuthGuard } from './guards/unified-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { TenantGuard } from './guards/tenant.guard';
 import { ClsContextInterceptor } from './interceptors/cls-context.interceptor';
@@ -66,6 +67,7 @@ import { HealthController } from './controllers/health.controller';
   providers: [
     ApiKeyGuard,
     JwtAuthGuard,
+    UnifiedAuthGuard,
     TenantGuard,
     RolesGuard,
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
@@ -73,7 +75,7 @@ import { HealthController } from './controllers/health.controller';
     { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
     { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
   ],
-  exports: [ApiKeyGuard, JwtAuthGuard, TenantGuard, RolesGuard],
+  exports: [ApiKeyGuard, JwtAuthGuard, UnifiedAuthGuard, TenantGuard, RolesGuard],
 })
 export class HttpModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

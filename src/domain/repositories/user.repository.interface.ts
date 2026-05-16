@@ -1,5 +1,5 @@
 import { User } from '../entities/user.entity';
-import { Consistency } from '../../infrastructure/db/mysql/consistency.enum';
+import { Consistency } from '../value-objects/consistency.vo';
 
 export interface IUserRepository {
   save(user: User): Promise<void>;

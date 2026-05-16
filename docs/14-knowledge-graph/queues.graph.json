@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-queues",
+  "version": "1.0.0",
+  "generated": "2026-05-15",
+  "nodes": [
+    {
+      "id": "otp-fastlane",
+      "type": "queue",
+      "name": "OTP Fastlane Queue",
+      "criticality": "CRITICAL",
+      "priority": 1,
+      "retryPolicy": "immediate",
+      "maxRetries": 1,
+      "dlq": false,
+      "dependsOn": ["communication-service", "msg91-adapter"],
+      "failureImpact": ["otp-delivery", "login-failures"]
+    },
+    {
+      "id": "sms-delivery",
+      "type": "queue",
+      "name": "SMS Delivery Queue",
+      "criticality": "HIGH",
+      "priority": 2,
+      "retryPolicy": "exponential",
+      "maxRetries": 3,
+      "dlq": true,
+      "dependsOn": ["communication-service", "provider-router"],
+      "failureImpact": ["sms-delivery"]
+    },
+    {
+      "id": "email-delivery",
+      "type": "queue",
+      "name": "Email Delivery Queue",
+      "criticality": "MEDIUM",
+      "priority": 3,
+      "retryPolicy": "exponential",
+      "maxRetries": 3,
+      "dlq": true,
+      "dependsOn": ["communication-service", "provider-router"],
+      "failureImpact": ["email-delivery"]
+    },
+    {
+      "id": "webhook-processing",
+      "type": "queue",
+      "name": "Webhook Processing Queue",
+      "criticality": "LOW",
+      "priority": 5,
+      "retryPolicy": "linear",
+      "maxRetries": 5,
+      "dlq": true,
+      "dependsOn": ["webhook-service"],
+      "failureImpact": ["webhook-events"]
+    },
+    {
+      "id": "audit-logging",
+      "type": "queue",
+      "name": "Audit Logging Queue",
+      "criticality": "MEDIUM",
+      "priority": 5,
+      "retryPolicy": "exponential",
+      "maxRetries": 3,
+      "dlq": true,
+      "dependsOn": ["audit-service"],
+      "failureImpact": ["audit-trails"]
+    }
+  ],
+  "edges": [
+    { "from": "otp-fastlane", "to": "msg91-adapter", "label": "processes" },
+    { "from": "sms-delivery", "to": "provider-router", "label": "routes" },
+    { "from": "email-delivery", "to": "provider-router", "label": "routes" }
+  ]
+}

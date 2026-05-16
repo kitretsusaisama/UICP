@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-runtime",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "http-gateway",
+      "type": "runtime",
+      "name": "HTTP Gateway",
+      "criticality": "CRITICAL",
+      "dependsOn": ["unified-auth-service", "rate-limiter", "metrics-adapter"],
+      "failureImpact": ["api-access", "request-routing"]
+    },
+    {
+      "id": "grpc-gateway",
+      "type": "runtime",
+      "name": "gRPC Gateway",
+      "criticality": "HIGH",
+      "dependsOn": ["unified-auth-service", "rate-limiter"],
+      "failureImpact": ["grpc-access", "internal-rpc"]
+    },
+    {
+      "id": "redis-cache",
+      "type": "runtime",
+      "name": "Redis Cache",
+      "criticality": "CRITICAL",
+      "dependsOn": ["redis-cluster"],
+      "failureImpact": ["caching", "session-store", "rate-limiting"]
+    },
+    {
+      "id": "redis-session-store",
+      "type": "runtime",
+      "name": "Redis Session Store",
+      "criticality": "CRITICAL",
+      "dependsOn": ["redis-cluster"],
+      "failureImpact": ["session-persistence", "session-lookup"]
+    },
+    {
+      "id": "redis-oauth-cache",
+      "type": "runtime",
+      "name": "Redis OAuth Cache",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-cluster"],
+      "failureImpact": ["oauth-token-caching", "refresh-tokens"]
+    },
+    {
+      "id": "redis-lock",
+      "type": "runtime",
+      "name": "Redis Lock Service",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-cluster"],
+      "failureImpact": ["distributed-locks", "concurrency-control"]
+    },
+    {
+      "id": "mysql-primary",
+      "type": "database",
+      "name": "MySQL Primary",
+      "criticality": "CRITICAL",
+      "dependsOn": [],
+      "failureImpact": ["data-persistence", "reads", "writes"]
+    },
+    {
+      "id": "mysql-read-replica",
+      "type": "database",
+      "name": "MySQL Read Replica",
+      "criticality": "HIGH",
+      "dependsOn": ["mysql-primary"],
+      "failureImpact": ["read-operations", "query-performance"]
+    },
+    {
+      "id": "adaptive-cache",
+      "type": "runtime",
+      "name": "Adaptive Cache Service",
+      "criticality": "MEDIUM",
+      "dependsOn": ["redis-cache", "mysql-primary"],
+      "failureImpact": ["cache-warming", "cache-invalidation"]
+    },
+    {
+      "id": "adaptive-queue-concurrency",
+      "type": "runtime",
+      "name": "Adaptive Queue Concurrency",
+      "criticality": "MEDIUM",
+      "dependsOn": ["queue-adapter", "metrics-adapter"],
+      "failureImpact": ["queue-scaling", "throughput"]
+    },
+    {
+      "id": "adaptive-db-pool",
+      "type": "runtime",
+      "name": "Adaptive DB Pool Service",
+      "criticality": "HIGH",
+      "dependsOn": ["mysql-primary", "metrics-adapter"],
+      "failureImpact": ["connection-pooling", "db-scaling"]
+    },
+    {
+      "id": "adaptive-rate-limit",
+      "type": "runtime",
+      "name": "Adaptive Rate Limiter",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-cache", "metrics-adapter"],
+      "failureImpact": ["rate-limiting", "throttling"]
+    },
+    {
+      "id": "idempotency-service",
+      "type": "runtime",
+      "name": "Idempotency Service",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-cache"],
+      "failureImpact": ["duplicate-prevention", "safe-retries"]
+    },
+    {
+      "id": "distributed-lock-service",
+      "type": "runtime",
+      "name": "Distributed Lock Service",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-lock"],
+      "failureImpact": ["distributed-synchronization", "critical-sections"]
+    },
+    {
+      "id": "tracing-collector",
+      "type": "runtime",
+      "name": "Tracing Collector (OpenTelemetry)",
+      "criticality": "MEDIUM",
+      "dependsOn": ["otel-tracer"],
+      "failureImpact": ["trace-collection", "debugging"]
+    },
+    {
+      "id": "metrics-collector",
+      "type": "runtime",
+      "name": "Metrics Collector (Prometheus)",
+      "criticality": "HIGH",
+      "dependsOn": ["prom-client"],
+      "failureImpact": ["metrics-export", "monitoring"]
+    },
+    {
+      "id": "encryption-runtime",
+      "type": "runtime",
+      "name": "Encryption Runtime",
+      "criticality": "CRITICAL",
+      "dependsOn": ["aes256-encryption", "kms-service"],
+      "failureImpact": ["data-encryption", "key-management"]
+    }
+  ],
+  "edges": [
+    { "from": "http-gateway", "to": "unified-auth-service", "label": "authenticates" },
+    { "from": "http-gateway", "to": "rate-limiter", "label": "throttles" },
+    { "from": "grpc-gateway", "to": "unified-auth-service", "label": "authenticates" },
+    { "from": "redis-session-store", "to": "redis-cache", "label": "uses" },
+    { "from": "redis-oauth-cache", "to": "redis-cache", "label": "uses" },
+    { "from": "adaptive-cache", "to": "redis-cache", "label": "optimizes" },
+    { "from": "adaptive-cache", "to": "mysql-primary", "label": "reads" },
+    { "from": "adaptive-db-pool", "to": "mysql-primary", "label": "manages" },
+    { "from": "adaptive-rate-limit", "to": "redis-cache", "label": "counts" },
+    { "from": "idempotency-service", "to": "redis-cache", "label": "stores" },
+    { "from": "distributed-lock-service", "to": "redis-lock", "label": "acquires" },
+    { "from": "encryption-runtime", "to": "kms-service", "label": "manages" }
+  ]
+}

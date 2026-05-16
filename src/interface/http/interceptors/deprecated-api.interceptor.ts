@@ -2,7 +2,7 @@ import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } fr
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
-import { MetricsService } from '../../../../src/application/services/platform-ops/metrics.service';
+import { MetricsService } from '../../../application/services/platform-ops/metrics.service';
 
 @Injectable()
 export class DeprecatedApiInterceptor implements NestInterceptor {
@@ -38,9 +38,7 @@ export class DeprecatedApiInterceptor implements NestInterceptor {
 
         // 2. Export Prometheus Metric
         // Assuming we add a counter for deprecated API usage
-        if (this.metrics['deprecatedApiTotal']) {
-           this.metrics['deprecatedApiTotal'].inc({ route, client_id: clientId as string });
-        }
+        this.metrics.increment('uicp_deprecated_api_total', { route, client_id: String(clientId) });
       })
     );
   }

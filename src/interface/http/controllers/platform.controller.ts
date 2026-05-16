@@ -1,9 +1,12 @@
 import { BadRequestException, Body, Controller, Get, Headers, Post } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
+import { z } from 'zod';
 import { TenantManifestService } from '../../../application/control-plane/services/tenant-manifest.service';
 import { ProviderRoutingService } from '../../../application/control-plane/services/provider-routing.service';
 import { ExtensionDispatcherService } from '../../../application/dynamic-api/services/extension-dispatcher.service';
 import { ProviderRegistryService } from '../../../infrastructure/providers/provider-registry.service';
+import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
+import { manifestPreviewDto, providerRoutingPreviewDto, extensionPreviewDto } from '../dtos/platform/platform.dto';
 
 function parseTenantId(raw: string | undefined): string {
   if (!raw) {
@@ -101,7 +104,7 @@ export class PlatformController {
   @Post('manifest/preview')
   async manifestPreview(
     @Headers('x-tenant-id') rawTenantId: string,
-    @Body() body: { moduleKey?: string; override?: Record<string, unknown> },
+    @Body(new ZodValidationPipe(manifestPreviewDto)) body: z.infer<typeof manifestPreviewDto>,
   ) {
     const tenantId = parseTenantId(rawTenantId);
     const effectiveManifest = await this.manifestService.resolveEffectiveManifest(tenantId);
@@ -120,7 +123,7 @@ export class PlatformController {
   @Post('provider-routing/preview')
   async providerRoutePreview(
     @Headers('x-tenant-id') rawTenantId: string,
-    @Body() body: { channel: 'SMS' | 'EMAIL'; purpose: string },
+    @Body(new ZodValidationPipe(providerRoutingPreviewDto)) body: z.infer<typeof providerRoutingPreviewDto>,
   ) {
     const tenantId = parseTenantId(rawTenantId);
     const route = await this.providerRoutingService.resolveRoute(tenantId, body.channel, body.purpose as any);
@@ -130,7 +133,7 @@ export class PlatformController {
   @Post('extensions/preview')
   async extensionPreview(
     @Headers('x-tenant-id') rawTenantId: string,
-    @Body() body: { moduleKey: string; extensionPoint: string },
+    @Body(new ZodValidationPipe(extensionPreviewDto)) body: z.infer<typeof extensionPreviewDto>,
   ) {
     const tenantId = parseTenantId(rawTenantId);
     return {

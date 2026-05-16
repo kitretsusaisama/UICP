@@ -1,12 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject } from '@nestjs/common';
 import { Request } from 'express';
-import { IAppSecretRepository } from '../../../../src/domain/repositories/platform/app-secret.repository.interface';
+import { APP_SECRET_REPOSITORY, IAppSecretRepository } from '@domain/repositories/platform/app-secret.repository.interface';
 import * as crypto from 'crypto';
 
 @Injectable()
 export class ClientBasicAuthGuard implements CanActivate {
   constructor(
-    @Inject('APP_SECRET_REPOSITORY') private readonly secretRepo: IAppSecretRepository
+    @Inject(APP_SECRET_REPOSITORY) private readonly secretRepo: IAppSecretRepository
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -21,7 +21,9 @@ export class ClientBasicAuthGuard implements CanActivate {
     let clientSecret: string;
 
     try {
-      const decoded = Buffer.from(authHeader.split(' ')[1], 'base64').toString('utf8');
+      const encoded = authHeader.split(' ')[1];
+      if (!encoded) throw new Error('Missing credentials');
+      const decoded = Buffer.from(encoded, 'base64').toString('utf8');
       const colonIdx = decoded.indexOf(':');
       if (colonIdx === -1) throw new Error('Invalid format');
       clientId = decoded.substring(0, colonIdx);
@@ -30,7 +32,12 @@ export class ClientBasicAuthGuard implements CanActivate {
       throw new UnauthorizedException('Malformed Basic authentication payload');
     }
 
-    const appSecretEntities = await this.secretRepo.findByAppId(clientId);
+    const tenantId = String(req.headers['x-tenant-id'] ?? '');
+    if (!tenantId) {
+      throw new UnauthorizedException('Missing x-tenant-id header');
+    }
+
+    const appSecretEntities = await this.secretRepo.findByAppId(clientId, tenantId);
     if (!appSecretEntities || appSecretEntities.length === 0) {
       throw new UnauthorizedException('Invalid client credentials');
     }

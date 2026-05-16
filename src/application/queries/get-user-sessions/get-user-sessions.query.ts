@@ -8,5 +8,9 @@ export class GetUserSessionsQuery {
     public readonly tenantId: string,
     /** Must match userId or be an admin — enforced by the handler. */
     public readonly requestingUserId: string,
+    /** Pagination limit (1-100) */
+    public readonly limit?: number,
+    /** Base64 encoded cursor */
+    public readonly cursor?: string,
   ) {}
 }

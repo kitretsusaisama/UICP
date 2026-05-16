@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-trust-boundaries",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "public-api-boundary",
+      "type": "boundary",
+      "name": "Public API Boundary",
+      "trustLevel": "UNTRUSTED",
+      "entryPoints": ["login", "signup", "otp-verify", "password-reset", "oauth-callback"],
+      "dependsOn": ["http-gateway", "rate-limiter"],
+      "failureImpact": ["unauthenticated-access"]
+    },
+    {
+      "id": "authenticated-api-boundary",
+      "type": "boundary",
+      "name": "Authenticated API Boundary",
+      "trustLevel": "AUTHENTICATED",
+      "entryPoints": ["user-profile", "sessions", "credentials"],
+      "dependsOn": ["jwt-validation", "api-key-validation"],
+      "failureImpact": ["unauthorized-access"]
+    },
+    {
+      "id": "internal-service-boundary",
+      "type": "boundary",
+      "name": "Internal Service Boundary",
+      "trustLevel": "INTERNAL",
+      "entryPoints": ["internal-rpc", "service-to-service"],
+      "dependsOn": ["internal-service-guard", "service-auth"],
+      "failureImpact": ["service-compromise"]
+    },
+    {
+      "id": "tenant-isolation-boundary",
+      "type": "boundary",
+      "name": "Tenant Isolation Boundary",
+      "trustLevel": "TENANT",
+      "entryPoints": ["tenant-resources", "tenant-config"],
+      "dependsOn": ["tenant-context-propagation"],
+      "failureImpact": ["data-leakage", "cross-tenant-access"]
+    },
+    {
+      "id": "admin-boundary",
+      "type": "boundary",
+      "name": "Admin Boundary",
+      "trustLevel": "PRIVILEGED",
+      "entryPoints": ["admin-portal", "impersonation", "platform-config"],
+      "dependsOn": ["admin-role-check", "mfa-required"],
+      "failureImpact": ["privilege-escalation"]
+    },
+    {
+      "id": "database-boundary",
+      "type": "boundary",
+      "name": "Database Boundary",
+      "trustLevel": "TRUSTED",
+      "entryPoints": ["application-layer"],
+      "dependsOn": ["connection-pooling", "query-validation"],
+      "failureImpact": ["sql-injection", "data-exfiltration"]
+    },
+    {
+      "id": "cache-boundary",
+      "type": "boundary",
+      "name": "Cache Boundary",
+      "trustLevel": "TRUSTED",
+      "entryPoints": ["application-layer"],
+      "dependsOn": ["cache-adapter", "encryption-at-rest"],
+      "failureImpact": ["cache-poisoning", "data-exposure"]
+    },
+    {
+      "id": "external-provider-boundary",
+      "type": "boundary",
+      "name": "External Provider Boundary",
+      "trustLevel": "EXTERNAL",
+      "entryPoints": ["sms-providers", "email-providers", "oauth-providers"],
+      "dependsOn": ["provider-interface", "circuit-breaker"],
+      "failureImpact": ["provider-compromise", "supply-chain"]
+    },
+    {
+      "id": "webhook-boundary",
+      "type": "boundary",
+      "name": "Webhook Boundary",
+      "trustLevel": "EXTERNAL",
+      "entryPoints": ["outbound-webhooks"],
+      "dependsOn": ["webhook-signature-validation", "retry-policy"],
+      "failureImpact": ["data-exfiltration", "integration-abuse"]
+    },
+    {
+      "id": "encryption-boundary",
+      "type": "boundary",
+      "name": "Encryption Boundary",
+      "trustLevel": "CRITICAL",
+      "entryPoints": ["key-management", "encryption-operations"],
+      "dependsOn": ["kms-service", "encryption-adapter"],
+      "failureImpact": ["data-exposure", "key-compromise"]
+    },
+    {
+      "id": "session-boundary",
+      "type": "boundary",
+      "name": "Session Boundary",
+      "trustLevel": "AUTHENTICATED",
+      "entryPoints": ["session-management"],
+      "dependsOn": ["session-service", "secure-cookie"],
+      "failureImpact": ["session-hijacking", "session-fixation"]
+    },
+    {
+      "id": "abac-enforcement-boundary",
+      "type": "boundary",
+      "name": "ABAC Enforcement Boundary",
+      "trustLevel": "POLICY",
+      "entryPoints": ["resource-access"],
+      "dependsOn": ["abac-policy-engine", "attribute-collector"],
+      "failureImpact": ["policy-bypass", "unauthorized-access"]
+    }
+  ],
+  "edges": [
+    { "from": "public-api-boundary", "to": "authenticated-api-boundary", "label": "promotes" },
+    { "from": "authenticated-api-boundary", "to": "internal-service-boundary", "label": "calls" },
+    { "from": "internal-service-boundary", "to": "database-boundary", "label": "queries" },
+    { "from": "internal-service-boundary", "to": "cache-boundary", "label": "caches" },
+    { "from": "internal-service-boundary", "to": "external-provider-boundary", "label": "integrates" },
+    { "from": "tenant-isolation-boundary", "to": "database-boundary", "label": "isolates" },
+    { "from": "admin-boundary", "to": "internal-service-boundary", "label": "elevates" },
+    { "from": "webhook-boundary", "to": "external-provider-boundary", "label": "calls" },
+    { "from": "encryption-boundary", "to": "database-boundary", "label": "protects" },
+    { "from": "encryption-boundary", "to": "cache-boundary", "label": "protects" },
+    { "from": "session-boundary", "to": "internal-service-boundary", "label": "validates" },
+    { "from": "abac-enforcement-boundary", "to": "authenticated-api-boundary", "label": "enforces" }
+  ]
+}

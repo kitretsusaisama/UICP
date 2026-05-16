@@ -9,6 +9,7 @@ import { ITokenRepository } from '../../ports/driven/i-token.repository';
 import { IEncryptionPort } from '../../ports/driven/i-encryption.port';
 import { ITracerPort } from '../../ports/driven/i-tracer.port';
 import { IMetricsPort } from '../../ports/driven/i-metrics.port';
+import { ISecurityEventsPort } from '../../ports/driven/i-security-events.port';
 import { CredentialService } from '../../services/credential.service';
 import { SessionService } from '../../services/session.service';
 import { TokenService } from '../../services/token.service';
@@ -43,6 +44,7 @@ export class LoginHandler {
     private readonly logger: UicpLogger,
     @Optional() @Inject(INJECTION_TOKENS.TRACER_PORT) private readonly tracer?: ITracerPort,
     @Optional() @Inject(INJECTION_TOKENS.METRICS_PORT) private readonly metrics?: IMetricsPort,
+    @Optional() @Inject(INJECTION_TOKENS.SECURITY_EVENTS_PORT) private readonly securityEvents?: ISecurityEventsPort,
   ) {}
 
   async handle(cmd: LoginCommand): Promise<{
@@ -78,6 +80,17 @@ export class LoginHandler {
     const identity = await this.identityRepo.findByHash(identityHash, identityType, tenantId);
     if (!identity) {
       await this.credentialService.dummyVerify();
+      await this.securityEvents?.log({
+        tenantId: cmd.tenantId,
+        eventType: 'login_failed',
+        severity: 'warning',
+        ipHash: cmd.ipHash,
+        userAgent: cmd.userAgent,
+        deviceFingerprint: cmd.deviceFingerprint,
+        detailsJson: { reason: 'identity_not_found', identityType },
+        detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
       throw new DomainException(DomainErrorCode.INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
@@ -86,6 +99,18 @@ export class LoginHandler {
     const user = await this.userRepo.findById(userId, tenantId);
     if (!user) {
       await this.credentialService.dummyVerify();
+      await this.securityEvents?.log({
+        tenantId: cmd.tenantId,
+        userId: userId.toString(),
+        eventType: 'login_failed',
+        severity: 'warning',
+        ipHash: cmd.ipHash,
+        userAgent: cmd.userAgent,
+        deviceFingerprint: cmd.deviceFingerprint,
+        detailsJson: { reason: 'user_not_found' },
+        detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
       throw new DomainException(DomainErrorCode.INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
@@ -96,14 +121,50 @@ export class LoginHandler {
     const status = user.getStatus();
     if (status === 'DELETED') {
       this.metrics?.increment('uicp_auth_attempts_total', { tenant_id: cmd.tenantId, result: 'failed' });
+      await this.securityEvents?.log({
+        tenantId: cmd.tenantId,
+        userId: userId.toString(),
+        eventType: 'login_blocked',
+        severity: 'warning',
+        ipHash: cmd.ipHash,
+        userAgent: cmd.userAgent,
+        deviceFingerprint: cmd.deviceFingerprint,
+        detailsJson: { reason: 'account_deleted' },
+        detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
       throw new DomainException(DomainErrorCode.ACCOUNT_DELETED, 'Account has been deleted');
     }
     if (status === 'SUSPENDED' && user.isSuspendedNow()) {
       this.metrics?.increment('uicp_auth_attempts_total', { tenant_id: cmd.tenantId, result: 'failed' });
+      await this.securityEvents?.log({
+        tenantId: cmd.tenantId,
+        userId: userId.toString(),
+        eventType: 'login_blocked',
+        severity: 'warning',
+        ipHash: cmd.ipHash,
+        userAgent: cmd.userAgent,
+        deviceFingerprint: cmd.deviceFingerprint,
+        detailsJson: { reason: 'account_suspended', suspendUntil: user.getSuspendUntil() },
+        detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
       throw new DomainException(DomainErrorCode.ACCOUNT_SUSPENDED, 'Account is suspended');
     }
     if (status === 'PENDING') {
       this.metrics?.increment('uicp_auth_attempts_total', { tenant_id: cmd.tenantId, result: 'failed' });
+      await this.securityEvents?.log({
+        tenantId: cmd.tenantId,
+        userId: userId.toString(),
+        eventType: 'login_blocked',
+        severity: 'warning',
+        ipHash: cmd.ipHash,
+        userAgent: cmd.userAgent,
+        deviceFingerprint: cmd.deviceFingerprint,
+        detailsJson: { reason: 'account_pending' },
+        detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
       throw new DomainException(DomainErrorCode.ACCOUNT_NOT_ACTIVATED, 'Account is not activated');
     }
 
@@ -112,11 +173,35 @@ export class LoginHandler {
     const credential = user.getCredential();
     if (!credential) {
       this.metrics?.increment('uicp_auth_attempts_total', { tenant_id: cmd.tenantId, result: 'failed' });
+      await this.securityEvents?.log({
+        tenantId: cmd.tenantId,
+        userId: userId.toString(),
+        eventType: 'login_failed',
+        severity: 'warning',
+        ipHash: cmd.ipHash,
+        userAgent: cmd.userAgent,
+        deviceFingerprint: cmd.deviceFingerprint,
+        detailsJson: { reason: 'no_credential_found' },
+        detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
       throw new DomainException(DomainErrorCode.INVALID_CREDENTIALS, 'Invalid credentials');
     }
     const valid = await this.credentialService.verify(rawPassword, credential);
     if (!valid) {
       this.metrics?.increment('uicp_auth_attempts_total', { tenant_id: cmd.tenantId, result: 'failed' });
+      await this.securityEvents?.log({
+        tenantId: cmd.tenantId,
+        userId: userId.toString(),
+        eventType: 'login_failed',
+        severity: 'warning',
+        ipHash: cmd.ipHash,
+        userAgent: cmd.userAgent,
+        deviceFingerprint: cmd.deviceFingerprint,
+        detailsJson: { reason: 'invalid_password' },
+        detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
       throw new DomainException(DomainErrorCode.INVALID_CREDENTIALS, 'Invalid credentials');
     }
 
@@ -228,6 +313,26 @@ export class LoginHandler {
     }
 
     this.metrics?.increment('uicp_auth_attempts_total', { tenant_id: cmd.tenantId, result: requireMfa ? 'mfa_required' : 'success' });
+
+    // 15. Log successful login security event
+    await this.securityEvents?.log({
+      tenantId: cmd.tenantId,
+      userId: userId.toString(),
+      principalId: runtimeIdentity.principalId,
+      sessionId: session.id.toString(),
+      eventType: 'login_success',
+      severity: 'info',
+      ipHash: cmd.ipHash,
+      userAgent: cmd.userAgent,
+      deviceFingerprint: cmd.deviceFingerprint,
+      detailsJson: {
+        mfaRequired: requireMfa,
+        threatScore: 0.0,
+        authMethod: 'password',
+      },
+      detectedBy: 'rules',
+        ipChangeDetected: false,
+      }).catch(() => {}); // Non-blocking
 
     return {
       accessToken,

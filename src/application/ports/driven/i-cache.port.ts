@@ -62,4 +62,10 @@ export interface ICachePort {
    * Returns true when the TTL was set, false when the key does not exist.
    */
   expire(key: string, ttlSeconds: number): Promise<boolean>;
+
+  /**
+   * Ping the Redis server.
+   * Returns 'PONG' when the server is reachable.
+   */
+  ping(): Promise<string>;
 }

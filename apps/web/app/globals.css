@@ -1,0 +1,222 @@
+/* UICP Design System — Operational Density */
+/* Built for real-time data, keyboard-first, dense information display */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Core palette */
+  --background: #f7f8fa;
+  --foreground: #16181d;
+  --muted: #f1f3f5;
+  --muted-foreground: #868e96;
+  --border: #e1e4e8;
+  --input: #e1e4e8;
+
+  /* Accent */
+  --accent: #228be6;
+  --accent-foreground: #ffffff;
+  --accent-hover: #1c7edc;
+
+  /* Semantic */
+  --destructive: #fa5252;
+  --destructive-foreground: #ffffff;
+  --success: #40c057;
+  --warning: #fab005;
+  --info: #228be6;
+
+  /* Status */
+  --status-active: #40c057;
+  --status-pending: #fab005;
+  --status-revoked: #fa5252;
+  --status-expired: #868e96;
+
+  /* Tenant isolation tiers */
+  --tier-dedicated: #228be6;
+  --tier-isolated: #7950f2;
+  --tier-shared: #12b886;
+
+  /* Text */
+  --text-primary: #16181d;
+  --text-secondary: #495057;
+  --text-muted: #868e96;
+
+  /* Radius */
+  --radius: 6px;
+  --radius-lg: 8px;
+  --radius-sm: 4px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+
+  /* Font */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Dark mode */
+.dark {
+  --background: #16181d;
+  --foreground: #f1f3f5;
+  --muted: #212529;
+  --muted-foreground: #adb5bd;
+  --border: #343a40;
+  --input: #343a40;
+  --accent: #4dabf7;
+  --accent-hover: #74c0fc;
+  --text-primary: #f1f3f5;
+  --text-secondary: #adb5bd;
+  --text-muted: #868e96;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Dense tables */
+  table {
+    @apply text-sm;
+  }
+
+  /* Status badges */
+  .status-dot {
+    @apply inline-block h-2 w-2 rounded-full;
+  }
+  .status-active { @apply bg-[#40c057]; }
+  .status-pending { @apply bg-[#fab005]; }
+  .status-revoked { @apply bg-[#fa5252]; }
+  .status-expired { @apply bg-[#868e96]; }
+
+  /* Tenant tier badges */
+  .tier-dedicated { @apply bg-[#228be6] text-white; }
+  .tier-isolated { @apply bg-[#7950f2] text-white; }
+  .tier-shared { @apply bg-[#12b886] text-white; }
+
+  /* Severity badges */
+  .severity-critical { @apply bg-[#fa5252] text-white; }
+  .severity-high { @apply bg-[#fd7e14] text-white; }
+  .severity-medium { @apply bg-[#fab005] text-black; }
+  .severity-low { @apply bg-[#868e96] text-white; }
+
+  /* Code/data */
+  code, .font-mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+
+  /* Input focus states */
+  input:focus, select:focus, textarea:focus {
+    @apply outline-none ring-2 ring-accent ring-offset-1;
+  }
+
+  /* Compact form layout */
+  .form-row {
+    @apply flex items-center gap-3;
+  }
+
+  /* Data table row */
+  .data-row {
+    @apply grid items-center border-b border-border py-2;
+  }
+
+  /* Metric card */
+  .metric-card {
+    @apply rounded border border-border bg-white p-4;
+  }
+  .metric-value {
+    @apply text-2xl font-semibold tabular-nums;
+  }
+  .metric-label {
+    @apply text-xs text-muted-foreground uppercase tracking-wide;
+  }
+
+  /* Code block */
+  .code-block {
+    @apply rounded border border-border bg-muted p-3 font-mono text-xs overflow-x-auto;
+  }
+
+  /* Error states */
+  .field-error {
+    @apply text-xs text-destructive mt-1;
+  }
+
+  /* Keyboard shortcut badge */
+  .kbd {
+    @apply inline-flex items-center rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-xs;
+  }
+
+  /* Loading skeleton */
+  .skeleton {
+    @apply animate-pulse rounded bg-muted;
+  }
+
+  /* Pulse animation for live indicators */
+  @keyframes pulse-live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .pulse-live {
+    animation: pulse-live 2s ease-in-out infinite;
+  }
+
+  /* Fade in for live updates */
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 200ms ease-out;
+  }
+}
+
+@layer components {
+  /* Card */
+  .card {
+    @apply rounded border border-border bg-white shadow-sm;
+  }
+
+  /* Section header */
+  .section-header {
+    @apply flex items-center justify-between pb-3 border-b border-border mb-4;
+  }
+  .section-title {
+    @apply text-sm font-semibold text-foreground;
+  }
+
+  /* Empty state */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-12 text-center text-muted-foreground;
+  }
+
+  /* Command palette overlay */
+  .cmdk-overlay {
+    @apply fixed inset-0 z-50 bg-black/50 backdrop-blur-sm;
+  }
+  .cmdk-dialog {
+    @apply fixed left-1/2 top-1/4 z-50 w-full max-w-xl -translate-x-1/2 rounded-lg border border-border bg-white shadow-lg;
+  }
+
+  /* Data table */
+  .data-table th {
+    @apply text-left text-xs font-medium uppercase tracking-wide text-muted-foreground pb-2;
+  }
+  .data-table td {
+    @apply py-2;
+  }
+  .data-table tr:hover td {
+    @apply bg-muted/50;
+  }
+}

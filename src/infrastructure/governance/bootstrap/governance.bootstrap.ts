@@ -1,10 +1,12 @@
-import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { DiscoveryService, Reflector } from '@nestjs/core';
 import { GovernanceMetadata } from '../decorators/governance.decorator';
 import { ROUTE_MANIFEST } from '../route-manifest';
 
 @Injectable()
 export class GovernanceBootstrapValidator implements OnApplicationBootstrap {
+  private readonly logger = new Logger(GovernanceBootstrapValidator.name);
+
   constructor(
     private readonly discovery: DiscoveryService,
     private readonly reflector: Reflector
@@ -88,7 +90,7 @@ export class GovernanceBootstrapValidator implements OnApplicationBootstrap {
     if (process.env.RELEASE_MODE === 'production') {
       throw new Error(`[PRODUCTION BOOT ERROR] ${msg}`);
     } else {
-      console.warn(`[GOVERNANCE LEAK DETECTED]: ${msg}`);
+      this.logger.warn('[GOVERNANCE LEAK DETECTED] ' + msg);
     }
   }
 }

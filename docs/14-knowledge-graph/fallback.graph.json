@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-fallback",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "sms-provider-fallback",
+      "type": "fallback",
+      "name": "SMS Provider Fallback Chain",
+      "criticality": "HIGH",
+      "primary": "msg91-adapter",
+      "fallbacks": ["twilio-adapter", "nexmo-adapter"],
+      "dependsOn": ["provider-registry", "provider-health-runtime"],
+      "failureImpact": ["sms-delivery-failure"]
+    },
+    {
+      "id": "email-provider-fallback",
+      "type": "fallback",
+      "name": "Email Provider Fallback Chain",
+      "criticality": "HIGH",
+      "primary": "resend-adapter",
+      "fallbacks": ["maileroo-adapter", "smtp-adapter"],
+      "dependsOn": ["provider-registry", "provider-health-runtime"],
+      "failureImpact": ["email-delivery-failure"]
+    },
+    {
+      "id": "otp-provider-fallback",
+      "type": "fallback",
+      "name": "OTP Provider Fallback Chain",
+      "criticality": "CRITICAL",
+      "primary": "firebase-otp",
+      "fallbacks": ["msg91-widget", "smtp-otp"],
+      "dependsOn": ["tenant-provider-registry"],
+      "failureImpact": ["otp-delivery-failure"]
+    },
+    {
+      "id": "cache-fallback",
+      "type": "fallback",
+      "name": "Cache Fallback Chain",
+      "criticality": "HIGH",
+      "primary": "redis-cache",
+      "fallbacks": ["local-memory-cache", "no-op-cache"],
+      "dependsOn": ["cache-module"],
+      "failureImpact": ["cache-unavailability", "performance-degradation"]
+    },
+    {
+      "id": "db-read-fallback",
+      "type": "fallback",
+      "name": "Database Read Fallback",
+      "criticality": "HIGH",
+      "primary": "mysql-primary",
+      "fallbacks": ["mysql-read-replica"],
+      "dependsOn": ["database-module"],
+      "failureImpact": ["read-failures", "read-latency"]
+    },
+    {
+      "id": "auth-method-fallback",
+      "type": "fallback",
+      "name": "Authentication Method Fallback",
+      "criticality": "HIGH",
+      "primary": "jwt-auth",
+      "fallbacks": ["api-key-auth", "session-cookie-auth"],
+      "dependsOn": ["unified-auth-service"],
+      "failureImpact": ["authentication-failure"]
+    },
+    {
+      "id": "idp-fallback",
+      "type": "fallback",
+      "name": "Identity Provider Fallback",
+      "criticality": "MEDIUM",
+      "primary": "oidc-provider",
+      "fallbacks": ["saml-provider", "local-credentials"],
+      "dependsOn": ["oauth-service"],
+      "failureImpact": ["sso-failure", "federation-failure"]
+    },
+    {
+      "id": "encryption-fallback",
+      "type": "fallback",
+      "name": "Encryption Fallback Chain",
+      "criticality": "CRITICAL",
+      "primary": "kms-service",
+      "fallbacks": ["local-key-service"],
+      "dependsOn": ["encryption-module"],
+      "failureImpact": ["encryption-failure", "key-management"]
+    },
+    {
+      "id": "queue-fallback",
+      "type": "fallback",
+      "name": "Queue Fallback Chain",
+      "criticality": "MEDIUM",
+      "primary": "bullmq-queue-adapter",
+      "fallbacks": ["redis-queue-adapter"],
+      "dependsOn": ["queue-module"],
+      "failureImpact": ["queue-unavailability"]
+    },
+    {
+      "id": "tracing-fallback",
+      "type": "fallback",
+      "name": "Tracing Fallback Chain",
+      "criticality": "LOW",
+      "primary": "otel-tracer",
+      "fallbacks": ["no-op-tracer"],
+      "dependsOn": ["tracing-module"],
+      "failureImpact": ["trace-collection"]
+    },
+    {
+      "id": "metrics-fallback",
+      "type": "fallback",
+      "name": "Metrics Fallback Chain",
+      "criticality": "MEDIUM",
+      "primary": "prom-client-metrics",
+      "fallbacks": ["no-op-metrics"],
+      "dependsOn": ["metrics-module"],
+      "failureImpact": ["metrics-export"]
+    }
+  ],
+  "edges": [
+    { "from": "sms-provider-fallback", "to": "msg91-adapter", "label": "primary" },
+    { "from": "sms-provider-fallback", "to": "twilio-adapter", "label": "fallback-1" },
+    { "from": "email-provider-fallback", "to": "resend-adapter", "label": "primary" },
+    { "from": "email-provider-fallback", "to": "maileroo-adapter", "label": "fallback-1" },
+    { "from": "email-provider-fallback", "to": "smtp-adapter", "label": "fallback-2" },
+    { "from": "otp-provider-fallback", "to": "firebase-otp", "label": "primary" },
+    { "from": "cache-fallback", "to": "redis-cache", "label": "primary" },
+    { "from": "cache-fallback", "to": "local-memory-cache", "label": "fallback" },
+    { "from": "db-read-fallback", "to": "mysql-primary", "label": "primary" },
+    { "from": "db-read-fallback", "to": "mysql-read-replica", "label": "fallback" },
+    { "from": "encryption-fallback", "to": "kms-service", "label": "primary" }
+  ]
+}

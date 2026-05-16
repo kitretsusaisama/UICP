@@ -8,8 +8,11 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiHeader, ApiTags } from '@nestjs/swagger';
+import { z } from 'zod';
 import { TenantManifestService } from '../../../application/control-plane/services/tenant-manifest.service';
 import { ExtensionDispatcherService } from '../../../application/dynamic-api/services/extension-dispatcher.service';
+import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
+import { extensionCommandDto } from '../dtos/extension/extension-v2.dto';
 
 function parseTenantId(raw: string | undefined): string {
   if (!raw) {
@@ -34,7 +37,7 @@ export class ExtensionController {
     @Headers('x-tenant-id') rawTenantId: string,
     @Param('extensionKey') extensionKey: string,
     @Param('commandKey') commandKey: string,
-    @Body() body: Record<string, unknown>,
+    @Body(new ZodValidationPipe(extensionCommandDto)) body: z.infer<typeof extensionCommandDto>,
   ) {
     const tenantId = parseTenantId(rawTenantId);
     const effectiveManifest = await this.manifestService.resolveEffectiveManifest(tenantId);

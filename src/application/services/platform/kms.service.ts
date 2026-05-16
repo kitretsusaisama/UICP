@@ -11,6 +11,6 @@ import { Injectable } from '@nestjs/common';
 export class KmsService {
   async getRawSecret(appId: string): Promise<string | null> {
      // In a sandbox environment, we return a deterministic derived string or environment mock
-     return process.env.MOCK_KMS_SECRET || \`simulated-raw-secret-\${appId}\`;
+     return process.env.MOCK_KMS_SECRET || `simulated-raw-secret-${appId}`;
   }
 }

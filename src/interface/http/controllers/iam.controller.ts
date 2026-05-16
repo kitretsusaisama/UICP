@@ -1,15 +1,15 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { TenantGuard } from '../guards/tenant.guard';
+import { UnifiedAuthGuard } from '../guards/unified-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { SessionService } from '../../../../src/application/services/session.service';
+import { SessionService } from '../../../application/services/session.service';
 
 @ApiTags('Users')
 @Controller('v1/users/me')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(UnifiedAuthGuard)
 @ApiBearerAuth()
 export class IamController {
-  constructor(private readonly sessionService: SessionService) {}
+  constructor(private readonly sessionService: SessionService) { }
 
   @Get()
   @ApiOperation({ summary: 'Get current user profile (Canonical)' })
@@ -38,8 +38,8 @@ export class IamController {
   @ApiOperation({ summary: 'Get all active devices (Canonical)' })
   async getDevices(@Req() req: any) {
     return {
-       success: true,
-       data: { devices: [] }
+      success: true,
+      data: { devices: [] }
     };
   }
 }

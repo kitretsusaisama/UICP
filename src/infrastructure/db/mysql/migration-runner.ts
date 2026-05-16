@@ -2,10 +2,13 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { Logger } from '@nestjs/common';
 
 // mysql2 types — resolved at runtime; install with: npm install mysql2
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Pool = any;
+
+const logger = new Logger('MigrationRunner');
 
 export interface MigrationRecord {
   version: number;
@@ -109,10 +112,15 @@ async function applyMigration(
 
     // Split on semicolons to handle multi-statement migration files.
     // Filter out empty statements.
-    const statements = migration.sql
+    // Strip SQL comments before splitting into statements.
+    const cleanSql = migration.sql
+      .replace(/--.*$/gm, '')  // Remove single-line comments
+      .trim();
+
+    const statements = cleanSql
       .split(';')
       .map((s) => s.trim())
-      .filter((s) => s.length > 0 && !s.startsWith('--'));
+      .filter((s) => s.length > 0);
 
     for (const stmt of statements) {
       await conn.execute(stmt);
@@ -207,16 +215,18 @@ export async function runMigrations(
       }
 
       // Not yet applied — run it
-      console.log(
-        `[MigrationRunner] Applying V${String(migration.version).padStart(3, '0')}: ${migration.description}`,
+      logger.log(
+        `Applying migration V${migration.version}: ${migration.description}`,
+        'MigrationRunner',
       );
       await applyMigration(pool, migration);
-      console.log(
-        `[MigrationRunner] Applied  V${String(migration.version).padStart(3, '0')}: ${migration.description}`,
+      logger.log(
+        `Applied migration V${migration.version}: ${migration.description}`,
+        'MigrationRunner',
       );
     }
 
-    console.log('[MigrationRunner] All migrations up to date.');
+    logger.log('All migrations up to date.', 'MigrationRunner');
   } finally {
     await releaseAdvisoryLock(pool);
   }

@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-auth",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "login-flow",
+      "type": "auth-flow",
+      "name": "Login Flow",
+      "criticality": "CRITICAL",
+      "dependsOn": ["credential-service", "token-service", "session-service"],
+      "failureImpact": ["user-authentication", "session-creation"]
+    },
+    {
+      "id": "signup-flow",
+      "type": "auth-flow",
+      "name": "Signup Flow",
+      "criticality": "CRITICAL",
+      "dependsOn": ["credential-service", "user-repository", "otp-service", "token-service"],
+      "failureImpact": ["account-creation", "verification"]
+    },
+    {
+      "id": "otp-verification",
+      "type": "auth-flow",
+      "name": "OTP Verification Flow",
+      "criticality": "CRITICAL",
+      "dependsOn": ["otp-service", "credential-service", "token-service"],
+      "failureImpact": ["phone-verification", "2fa", "password-reset"]
+    },
+    {
+      "id": "oauth-callback",
+      "type": "auth-flow",
+      "name": "OAuth Callback Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["oauth-service", "token-service", "session-service"],
+      "failureImpact": ["social-login", "sso-completion"]
+    },
+    {
+      "id": "password-reset",
+      "type": "auth-flow",
+      "name": "Password Reset Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["otp-service", "credential-service", "token-service"],
+      "failureImpact": ["password-recovery", "account-recovery"]
+    },
+    {
+      "id": "api-key-auth",
+      "type": "auth-flow",
+      "name": "API Key Authentication Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["api-key-service", "token-service", "kms-service"],
+      "failureImpact": ["service-authentication", "programmatic-access"]
+    },
+    {
+      "id": "jwt-validation",
+      "type": "auth-flow",
+      "name": "JWT Validation Flow",
+      "criticality": "CRITICAL",
+      "dependsOn": ["token-service", "kms-service"],
+      "failureImpact": ["request-authentication", "authorization"]
+    },
+    {
+      "id": "session-refresh",
+      "type": "auth-flow",
+      "name": "Session Refresh Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["token-service", "session-service", "redis-session-store"],
+      "failureImpact": ["session-continuity", "auto-renewal"]
+    },
+    {
+      "id": "token-revocation",
+      "type": "auth-flow",
+      "name": "Token Revocation Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["token-service", "session-service", "redis-session-store"],
+      "failureImpact": ["logout", "session-termination", "force-logout"]
+    },
+    {
+      "id": "device-auth",
+      "type": "auth-flow",
+      "name": "Device Authentication Flow",
+      "criticality": "MEDIUM",
+      "dependsOn": ["device-analyzer", "ueba-engine", "credential-service"],
+      "failureImpact": ["device-verification", "fraud-detection"]
+    },
+    {
+      "id": "mfa-setup",
+      "type": "auth-flow",
+      "name": "MFA Setup Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["otp-service", "credential-service", "user-repository"],
+      "failureImpact": ["2fa-enrollment", "mfa-configuration"]
+    },
+    {
+      "id": "saml-sso",
+      "type": "auth-flow",
+      "name": "SAML SSO Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["saml-sso-service", "oauth-service", "session-service"],
+      "failureImpact": ["enterprise-sso", "saml-authentication"]
+    },
+    {
+      "id": "oidc-flow",
+      "type": "auth-flow",
+      "name": "OIDC Flow",
+      "criticality": "HIGH",
+      "dependsOn": ["oidc-provider-service", "oauth-service", "session-service"],
+      "failureImpact": ["openid-connect", "federated-identity"]
+    },
+    {
+      "id": "impersonation",
+      "type": "auth-flow",
+      "name": "Admin Impersonation Flow",
+      "criticality": "CRITICAL",
+      "dependsOn": ["platform-impersonation-service", "token-service", "audit-service"],
+      "failureImpact": ["admin-access", "support-impersonation"]
+    }
+  ],
+  "edges": [
+    { "from": "login-flow", "to": "credential-service", "label": "validates" },
+    { "from": "login-flow", "to": "token-service", "label": "issues" },
+    { "from": "login-flow", "to": "session-service", "label": "creates" },
+    { "from": "signup-flow", "to": "otp-service", "label": "sends" },
+    { "from": "otp-verification", "to": "token-service", "label": "issues" },
+    { "from": "oauth-callback", "to": "oauth-service", "label": "processes" },
+    { "from": "api-key-auth", "to": "api-key-service", "label": "validates" },
+    { "from": "jwt-validation", "to": "token-service", "label": "validates" },
+    { "from": "device-auth", "to": "ueba-engine", "label": "analyzes" },
+    { "from": "saml-sso", "to": "saml-sso-service", "label": "processes" },
+    { "from": "oidc-flow", "to": "oidc-provider-service", "label": "processes" },
+    { "from": "impersonation", "to": "audit-service", "label": "logs" }
+  ]
+}

@@ -206,6 +206,8 @@ export class OutboxRelayWorker implements OnModuleInit, OnModuleDestroy {
     const socSecurityEventTypes = new Set<string>([
       'TokenReuseDetected',
       'ThreatSignalRaised',
+      'ThreatDetected',
+      'CredentialReuse',
     ]);
 
     const SOC_SECURITY_EVENT_PREFIXES = ['Security.', 'Threat.', 'AuthThreat.'] as const;

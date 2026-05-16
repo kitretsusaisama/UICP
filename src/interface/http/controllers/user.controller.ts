@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -14,51 +13,35 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
+
+/**
+ * API Versioning Strategy:
+ * VERSION_NEVER = route is excluded from version prefix (used for internal/system paths)
+ * VERSION_ALWAYS = route always gets /v{N}/ prefix (default for public API routes)
+ *
+ * Apply @Controller() prefix per controller — NestJS will combine with module-level prefixes.
+ */
+export const VERSION_NEVER = undefined;
+export const API_VERSION = 'v1' as const;
 
 import { GetUserQuery } from '../../../application/queries/get-user/get-user.query';
 import { GetUserHandler } from '../../../application/queries/get-user/get-user.handler';
 import { ListAuditLogsQuery } from '../../../application/queries/list-audit-logs/list-audit-logs.query';
 import { ListAuditLogsHandler } from '../../../application/queries/list-audit-logs/list-audit-logs.handler';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import { UnifiedAuthGuard } from '../guards/unified-auth.guard';
 import { IdempotencyInterceptor } from '../interceptors/idempotency.interceptor';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
+import { patchUserDto, addIdentityDto } from '../dtos';
+import { getTenantIdOrThrow, extractTenantIdFromRequest } from '../tenant/tenant-resolver';
 
 interface AuthRequest {
   headers: Record<string, string | string[] | undefined>;
   userId: string;
   roles?: string[];
   perms?: string[];
-}
-
-// ── Zod schemas ───────────────────────────────────────────────────────────────
-
-const patchUserSchema = z.object({
-  displayName: z.string().min(1).max(200).optional(),
-  metadata: z.record(z.unknown()).optional(),
-});
-
-const addIdentitySchema = z.object({
-  type: z.enum(['email', 'phone']),
-  value: z.string().min(1).max(320),
-});
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function parseTenantId(raw: string | undefined): string {
-  if (!raw) {
-    throw new BadRequestException({
-      error: { code: 'MISSING_TENANT_ID', message: 'X-Tenant-ID header is required' },
-    });
-  }
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidRe.test(raw)) {
-    throw new BadRequestException({
-      error: { code: 'INVALID_TENANT_ID', message: `Invalid tenant ID: ${raw}` },
-    });
-  }
-  return raw;
+  tenantId?: string;
 }
 
 // ── Controller ────────────────────────────────────────────────────────────────
@@ -67,22 +50,21 @@ function parseTenantId(raw: string | undefined): string {
  * User self-service API — authenticated users manage their own profile.
  *
  * Routes:
- *   GET    /users/me                   — get own profile
- *   PATCH  /users/me                   — update display name / metadata
- *   DELETE /users/me                   — soft-delete own account
- *   GET    /users/me/identities        — list linked identities
- *   POST   /users/me/identities        — link a new identity
- *   DELETE /users/me/identities/:id    — unlink an identity
- *   GET    /users/me/audit-logs        — own audit trail (last 90 days)
- *   GET    /users/me/permissions       — effective permissions
+ *   GET    /v1/users/me                   — get own profile
+ *   PATCH  /v1/users/me                   — update display name / metadata
+ *   DELETE /v1/users/me                   — soft-delete own account
+ *   GET    /v1/users/me/identities        — list linked identities
+ *   POST   /v1/users/me/identities        — link a new identity
+ *   DELETE /v1/users/me/identities/:id    — unlink an identity
+ *   GET    /v1/users/me/audit-logs        — own audit trail (last 90 days)
+ *   GET    /v1/users/me/permissions       — effective permissions
  *
  * Implements: Req 2, Req 8
  */
 @ApiTags('Users')
 @ApiBearerAuth('bearer')
-@ApiHeader({ name: 'x-tenant-id', required: true, description: 'Tenant UUID' })
-@Controller('users/me')
-@UseGuards(JwtAuthGuard)
+@Controller(API_VERSION + '/users/me')
+@UseGuards(UnifiedAuthGuard)
 export class UserController {
   private readonly logger = new Logger(UserController.name);
 
@@ -95,7 +77,7 @@ export class UserController {
 
   @Get()
   async getProfile(@Req() req: AuthRequest) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     const profile = await this.getUserHandler.handle(
       new GetUserQuery(req.userId, tenantId, req.userId),
     );
@@ -109,9 +91,9 @@ export class UserController {
   @UseInterceptors(IdempotencyInterceptor)
   async updateProfile(
     @Req() req: AuthRequest,
-    @Body(new ZodValidationPipe(patchUserSchema)) body: z.infer<typeof patchUserSchema>,
+    @Body(new ZodValidationPipe(patchUserDto)) body: z.infer<typeof patchUserDto>,
   ) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     // Full implementation wired when UpdateUserCommand handler is added
     this.logger.log({ userId: req.userId, tenantId, fields: Object.keys(body) }, 'User profile update');
     return { data: { updated: true, userId: req.userId } };
@@ -120,20 +102,20 @@ export class UserController {
   // ── DELETE /users/me ───────────────────────────────────────────────────────
 
   @Delete()
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @UseInterceptors(IdempotencyInterceptor)
   async deleteAccount(@Req() req: AuthRequest) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     // Full implementation wired when DeleteUserCommand handler is added
     this.logger.log({ userId: req.userId, tenantId }, 'User account deletion requested');
-    return { data: { deleted: true, userId: req.userId } };
+    // Return 204 No Content - no response body per REST convention
   }
 
   // ── GET /users/me/identities ───────────────────────────────────────────────
 
   @Get('identities')
   async listIdentities(@Req() req: AuthRequest) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     const profile = await this.getUserHandler.handle(
       new GetUserQuery(req.userId, tenantId, req.userId),
     );
@@ -147,9 +129,9 @@ export class UserController {
   @UseInterceptors(IdempotencyInterceptor)
   async addIdentity(
     @Req() req: AuthRequest,
-    @Body(new ZodValidationPipe(addIdentitySchema)) body: z.infer<typeof addIdentitySchema>,
+    @Body(new ZodValidationPipe(addIdentityDto)) body: z.infer<typeof addIdentityDto>,
   ) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     // Full implementation wired when LinkIdentityCommand handler is added
     this.logger.log({ userId: req.userId, tenantId, type: body.type }, 'Identity link requested');
     return { data: { linked: true, type: body.type, verificationRequired: true } };
@@ -164,7 +146,7 @@ export class UserController {
     @Param('id') identityId: string,
     @Req() req: AuthRequest,
   ) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     // Full implementation wired when UnlinkIdentityCommand handler is added
     this.logger.log({ userId: req.userId, tenantId, identityId }, 'Identity unlink requested');
     return { data: { unlinked: true, identityId } };
@@ -174,7 +156,7 @@ export class UserController {
 
   @Get('audit-logs')
   async getAuditLogs(@Req() req: AuthRequest) {
-    const tenantId = parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    const tenantId = getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // 90 days
     const logs = await this.listAuditLogsHandler.handle(
       new ListAuditLogsQuery(tenantId, 50, req.userId, undefined, undefined, since),
@@ -186,7 +168,7 @@ export class UserController {
 
   @Get('permissions')
   async getPermissions(@Req() req: AuthRequest) {
-    parseTenantId(req.headers['x-tenant-id'] as string | undefined);
+    getTenantIdOrThrow(req as unknown as Record<string, unknown>);
     // Permissions are embedded in the JWT claims (Req 7.1, Req 10.6)
     return {
       data: {

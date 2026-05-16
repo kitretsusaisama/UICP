@@ -125,3 +125,84 @@ export function extractUlidFromKey(key: string): string | null {
   const parsed = parseApiKey(key);
   return parsed?.ulid ?? null;
 }
+
+// ============== Webhook Signature Verification ==============
+
+export interface WebhookSignatureOptions {
+  signatureHeader: string;
+  timestampHeader: string;
+  secret: string;
+  toleranceSeconds?: number;
+}
+
+export interface WebhookVerificationResult {
+  isValid: boolean;
+  error?: { code: string; message: string };
+}
+
+const SIGNATURE_ALGORITHM = 'sha256';
+const DEFAULT_TOLERANCE_SECONDS = 300; // 5 minutes
+
+export function verifyWebhookSignature(
+  payload: string | Buffer,
+  options: WebhookSignatureOptions
+): WebhookVerificationResult {
+  const { signatureHeader, timestampHeader, secret, toleranceSeconds = DEFAULT_TOLERANCE_SECONDS } = options;
+
+  if (!signatureHeader) {
+    return { isValid: false, error: { code: 'MISSING_SIGNATURE', message: 'Missing signature header' } };
+  }
+
+  if (!timestampHeader) {
+    return { isValid: false, error: { code: 'MISSING_TIMESTAMP', message: 'Missing timestamp header' } };
+  }
+
+  const timestamp = parseInt(timestampHeader, 10);
+  if (isNaN(timestamp)) {
+    return { isValid: false, error: { code: 'INVALID_TIMESTAMP', message: 'Invalid timestamp format' } };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const age = now - timestamp;
+  if (age > toleranceSeconds) {
+    return { isValid: false, error: { code: 'SIGNATURE_EXPIRED', message: 'Signature has expired' } };
+  }
+
+  if (age < -toleranceSeconds) {
+    return { isValid: false, error: { code: 'INVALID_TIMESTAMP', message: 'Timestamp too far in future' } };
+  }
+
+  const signature = signatureHeader.replace(/^sha256=/, '');
+  const signedPayload = `${timestamp}.${payload}`;
+  const expectedSignature = crypto.createHmac(SIGNATURE_ALGORITHM, secret).update(signedPayload).digest('hex');
+
+  if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+    return { isValid: false, error: { code: 'INVALID_SIGNATURE', message: 'Signature verification failed' } };
+  }
+
+  return { isValid: true };
+}
+
+export function generateWebhookSignature(payload: string | Buffer, timestamp: number, secret: string): string {
+  const signedPayload = `${timestamp}.${payload}`;
+  return `sha256=${crypto.createHmac(SIGNATURE_ALGORITHM, secret).update(signedPayload).digest('hex')}`;
+}
+
+// ============== Key Utility Functions ==============
+
+export function generateRandomKey(length: number = 32): string {
+  return crypto.randomBytes(length).toString('base64url');
+}
+
+export function hashSecret(secret: string): string {
+  return crypto.createHash('sha256').update(secret).digest('hex');
+}
+
+export function verifyHashedSecret(plainSecret: string, hashedSecret: string): boolean {
+  const hash = hashSecret(plainSecret);
+  return crypto.timingSafeEqual(Buffer.from(hash), Buffer.from(hashedSecret));
+}
+
+export function deriveKeyFromSecret(secret: string, salt: string, iterations: number = 100000): Buffer {
+  return crypto.pbkdf2Sync(secret, salt, iterations, 32, 'sha256');
+}

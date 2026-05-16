@@ -1,0 +1,3145 @@
+{
+  "info": {
+    "name": "UICP - Unified Identity Control Plane",
+    "description": "Complete API collection for UICP - API-key-centric multi-tenant identity and communication platform. \n\n**Auth Architecture:** Tenant context derived from credentials (API Key, JWT, Session) — no X-Tenant-ID header required for authenticated endpoints.\n\n**Key Formats (ULID-based):**\n- Live Publishable: `uF{ULID26}xl` — Production client-side\n- Live Secret: `sF{ULID26}xl{HMAC44}` — Production server-side  \n- Dev Publishable: `pB{ULID26}` — Development\n- Dev Secret: `tB{ULID26}{HMAC44}` — Development\n\n**Auth Priority:** API Key tenantId > JWT tid claim > Session tenantId\n\n## Environment Variables\n| Variable | Description |\n|----------|-------------|\n| `baseUrl` | API base URL (e.g., http://localhost:3000) |\n| `tenantId` | Tenant UUID for x-tenant-id header |\n| `accessToken` | JWT access token from login |\n| `refreshToken` | JWT refresh token |\n| `apiKeyPublic` | Publishable API key (uF/pB prefix) |\n| `apiKeySecret` | Secret API key (sF/tB prefix) |\n| `platformApiKey` | Platform API key for admin endpoints |",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "apiKeyPublic",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "apiKeySecret",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "platformApiKey",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Discovery",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health",
+            "header": []
+          }
+        },
+        {
+          "name": "Liveness Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/live",
+            "header": []
+          }
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/ready",
+            "header": []
+          }
+        },
+        {
+          "name": "JWKS",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/.well-known/jwks.json",
+            "header": []
+          }
+        },
+        {
+          "name": "OpenID Configuration",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/.well-known/openid-configuration",
+            "header": []
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unified Auth",
+      "item": [
+        {
+          "name": "Auth Attempt - Password",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/attempt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity\": \"user@example.com\",\n  \"authMethod\": \"password\",\n  \"secret\": \"your-password\",\n  \"deviceFingerprint\": \"device-fp-123\",\n  \"userAgent\": \"Mozilla/5.0\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Auth Attempt - OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/attempt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity\": \"+1234567890\",\n  \"authMethod\": \"otp\",\n  \"secret\": \"123456\",\n  \"deviceFingerprint\": \"device-fp-123\",\n  \"userAgent\": \"Mozilla/5.0\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Auth Attempt - Magic Link",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/attempt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity\": \"user@example.com\",\n  \"authMethod\": \"magic_link\",\n  \"deviceFingerprint\": \"device-fp-123\",\n  \"userAgent\": \"Mozilla/5.0\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Auth Attempt - OAuth",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/attempt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity\": \"google:google-subject-123\",\n  \"authMethod\": \"oauth\",\n  \"deviceFingerprint\": \"device-fp-123\",\n  \"userAgent\": \"Mozilla/5.0\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Auth Attempt - Session Resume",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/attempt",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stateToken\": \"base64-encoded-state-token\",\n  \"deviceFingerprint\": \"device-fp-123\",\n  \"userAgent\": \"Mozilla/5.0\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Complete Profile",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/profile/complete",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stateToken\": \"base64-encoded-state-token\",\n  \"profileData\": {\n    \"displayName\": \"John Doe\",\n    \"phone\": \"+1234567890\"\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Session Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/session/status?stateToken={{stateToken}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "session", "status"],
+              "query": [
+                { "key": "stateToken", "value": "{{stateToken}}" }
+              ]
+            },
+            "header": [
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ]
+          }
+        },
+        {
+          "name": "Abandon Session",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/session/abandon",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stateToken\": \"base64-encoded-state-token\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Core",
+      "item": [
+        {
+          "name": "Signup (Email)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/signup",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\",\n  \"tenantName\": \"My Company\",\n  \"domain\": \"mycompany.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Signup (Phone)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/signup",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1234567890\",\n  \"password\": \"SecurePass123!\",\n  \"tenantName\": \"My Company\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/login",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/refresh",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/logout",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Logout All Sessions",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/logout-all",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Switch Actor",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/switch-actor",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetActorId\": \"uuid\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Introspect Token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/introspect",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"eyJ...\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Password",
+      "item": [
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/password/change",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"old-password\",\n  \"newPassword\": \"new-password-123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Request Password Reset",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/password/reset/request",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identity\": \"user@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirm Password Reset",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/password/reset/confirm",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resetToken\": \"token-from-email\",\n  \"newPassword\": \"new-password-123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - OTP",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/send",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"uuid\",\n  \"purpose\": \"IDENTITY_VERIFICATION\",\n  \"recipient\": \"+1234567890\",\n  \"channel\": \"SMS\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/verify",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"uuid\",\n  \"code\": \"123456\",\n  \"purpose\": \"IDENTITY_VERIFICATION\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - OAuth",
+      "item": [
+        {
+          "name": "Initiate OAuth",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/oauth/:provider?client_id=xxx&redirect_uri=https://yourapp.com/callback&response_type=code&scope=openid%20profile&state=xyz",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "oauth", ":provider"],
+              "query": [
+                { "key": "client_id", "value": "xxx" },
+                { "key": "redirect_uri", "value": "https://yourapp.com/callback" },
+                { "key": "response_type", "value": "code" },
+                { "key": "scope", "value": "openid profile" },
+                { "key": "state", "value": "xyz" }
+              ]
+            },
+            "header": [
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ]
+          }
+        },
+        {
+          "name": "OAuth Callback",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/oauth/:provider/callback?code=xxx&state=xyz",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "oauth", ":provider", "callback"],
+              "query": [
+                { "key": "code", "value": "xxx" },
+                { "key": "state", "value": "xyz" }
+              ]
+            },
+            "header": [
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/users/me",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update Current User",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/v1/users/me",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"John Doe\",\n  \"phone\": \"+1234567890\",\n  \"avatarUrl\": \"https://example.com/avatar.jpg\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/users/me",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Identities",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/users/me/identities",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Add Identity",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/users/me/identities",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\",\n  \"providerToken\": \"google-oauth-token\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Remove Identity",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/users/me/identities/:provider",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/me/audit-logs?limit=50&cursor=",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "me", "audit-logs"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "cursor", "value": "" },
+                { "key": "action", "value": "" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Permissions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/users/me/permissions",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Devices",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/users/me/devices",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Remove Device",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/users/me/devices/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "List Sessions",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/me/sessions?limit=20&cursor=",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "me", "sessions"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "cursor", "value": "" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Revoke Session",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/users/me/sessions/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "API Keys (ULID)",
+      "item": [
+        {
+          "name": "Create API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/api-keys",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Production API Key\",\n  \"scope\": \"read\",\n  \"tier\": \"standard\",\n  \"ipAllowlist\": [\"192.168.1.0/24\"],\n  \"rateLimit\": 1000,\n  \"allowedOrigins\": [\"https://app.example.com\"],\n  \"expiresInDays\": 90\n}"
+            }
+          }
+        },
+        {
+          "name": "List API Keys",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/api-keys?limit=20&cursor=&status=active",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "api-keys"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "cursor", "value": "" },
+                { "key": "status", "value": "active" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get API Key",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/api-keys/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Rotate API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/api-keys/:id/rotate",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gracePeriodSeconds\": 3600\n}"
+            }
+          }
+        },
+        {
+          "name": "Revoke API Key",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/api-keys/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenant API Keys",
+      "item": [
+        {
+          "name": "Create Tenant API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/tenant/api-keys",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Production API Key\",\n  \"scope\": \"write\",\n  \"tier\": \"premium\",\n  \"ipAllowlist\": [\"10.0.0.0/8\", \"192.168.1.1\"],\n  \"rateLimit\": 100,\n  \"allowedOrigins\": [\"https://yourapp.com\"],\n  \"expiresInDays\": 365\n}"
+            }
+          }
+        },
+        {
+          "name": "List Tenant API Keys",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/tenant/api-keys",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Tenant API Key",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/tenant/api-keys/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Rotate Tenant API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/tenant/api-keys/:id/rotate",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Deprecate Tenant API Key",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/v1/tenant/api-keys/:id/deprecate?gracePeriodSeconds=3600",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "tenant", "api-keys", ":id", "deprecate"],
+              "query": [
+                { "key": "gracePeriodSeconds", "value": "3600" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Revoke Tenant API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/tenant/api-keys/:id/revoke",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update Tenant API Key",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/v1/tenant/api-keys/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Key Name\",\n  \"scope\": \"admin\",\n  \"rateLimit\": 200\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Tenant API Key",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/tenant/api-keys/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Policies",
+      "item": [
+        {
+          "name": "Create Policy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/policies",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Admin Access Policy\",\n  \"description\": \"Grants admin access during business hours\",\n  \"rules\": {\n    \"effect\": \"allow\",\n    \"actions\": [\"read:*\", \"write:*\"],\n    \"conditions\": {\n      \"timeRange\": { \"start\": \"09:00\", \"end\": \"17:00\", \"timezone\": \"America/New_York\" },\n      \"ipRange\": [\"192.168.1.0/24\"]\n    }\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "List Policies",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/policies",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Delete Policy",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/v1/policies/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Test Policy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/policies/:id/test",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"context\": {\n    \"subject\": \"user-uuid\",\n    \"action\": \"read:profile\",\n    \"resource\": \"user:profile\",\n    \"ipAddress\": \"192.168.1.100\",\n    \"timestamp\": \"2025-01-15T14:00:00Z\"\n  }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/roles",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Content Manager\",\n  \"description\": \"Can manage content and media\",\n  \"permissions\": [\"content:read\", \"content:write\", \"media:upload\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/roles",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Assign Role",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/roles/assign",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user-uuid\",\n  \"roleId\": \"role-uuid\",\n  \"expiresAt\": \"2025-12-31T23:59:59Z\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dynamic Modules",
+      "item": [
+        {
+          "name": "Get Module Resource",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/modules/:moduleKey/resources/:resourceKey",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Execute Command",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/modules/:moduleKey/commands/:commandKey",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": {}\n}"
+            }
+          }
+        },
+        {
+          "name": "Execute Action",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/modules/:moduleKey/actions/:actionKey",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": {}\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extensions",
+      "item": [
+        {
+          "name": "Get Extension Schema",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/extensions/:extensionKey/schema",
+            "header": []
+          }
+        },
+        {
+          "name": "Get Extension Bindings",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/extensions/:extensionKey/bindings",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Execute Extension Command",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/extensions/:extensionKey/commands/:commandKey",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": {}\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Communication",
+      "item": [
+        {
+          "name": "Send OTP Runtime",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/runtime/send",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient\": \"+1234567890\",\n  \"purpose\": \"verification\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Retry OTP",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/retry",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"challengeId\": \"challenge-uuid\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify OTP Runtime",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/runtime/verify",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"challengeId\": \"challenge-uuid\",\n  \"code\": \"123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Widget Token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/widget/verify-token",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"widget-token\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get OTP Challenge",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/auth/otp/challenges/:challengeId",
+            "header": [
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ]
+          }
+        },
+        {
+          "name": "Send Email",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/communication/email/send",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": [\"user@example.com\"],\n  \"cc\": [\"admin@example.com\"],\n  \"subject\": \"Test Email\",\n  \"html\": \"<h1>Hello</h1><p>This is a test email.</p>\",\n  \"text\": \"Hello, this is a test email.\",\n  \"from\": \"noreply@example.com\",\n  \"templateId\": \"template-uuid\",\n  \"variables\": { \"name\": \"John\" }\n}"
+            }
+          }
+        },
+        {
+          "name": "Batch Send Email",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/communication/email/batch",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    { \"to\": [\"user1@example.com\"], \"subject\": \"Test 1\", \"html\": \"<p>Test 1</p>\" },\n    { \"to\": [\"user2@example.com\"], \"subject\": \"Test 2\", \"html\": \"<p>Test 2</p>\" }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Templates",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/communication/templates",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Template",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/communication/templates",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"welcome\",\n  \"subject\": \"Welcome to {{app_name}}\",\n  \"html\": \"<h1>Hello {{name}}!</h1>\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Process Webhook",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/communication/webhooks/:provider",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        },
+        {
+          "name": "Get Delivery",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/communication/deliveries/:lineageId",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Provider Health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/providers/health",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "OTP Widget",
+      "item": [
+        {
+          "name": "Get Widget Config",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/auth/otp/widget/config",
+            "header": [
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ]
+          }
+        },
+        {
+          "name": "Send OTP Widget",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/widget/send",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1234567890\",\n  \"purpose\": \"login\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify OTP Widget",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/widget/verify",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1234567890\",\n  \"code\": \"123456\",\n  \"purpose\": \"login\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Retry OTP Widget",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/auth/otp/widget/retry",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+1234567890\",\n  \"purpose\": \"login\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Channels",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/auth/otp/widget/channels",
+            "header": [
+              { "key": "x-tenant-id", "value": "{{tenantId}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "IAM",
+      "item": [
+        {
+          "name": "Get IAM Info",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/iam",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get User Sessions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/iam/sessions",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get User Devices",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/iam/devices",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Core",
+      "item": [
+        {
+          "name": "Get Sessions (Core)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/core/sessions",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Devices (Core)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/core/devices",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Current User (Core)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/core/me",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Admin Health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/admin/health",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Tenants",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/tenants",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Company\",\n  \"domain\": \"newcompany.com\",\n  \"plan\": \"enterprise\",\n  \"quota\": {\n    \"apiCalls\": 1000000,\n    \"storage\": 100,\n    \"users\": 1000,\n    \"domains\": 5\n  },\n  \"metadata\": {}\n}"
+            }
+          }
+        },
+        {
+          "name": "List Tenants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/platform/v1/tenants?status=active&limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["platform", "v1", "tenants"],
+              "query": [
+                { "key": "status", "value": "active" },
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Tenant",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update Tenant",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Company Name\",\n  \"plan\": \"enterprise_plus\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Tenant Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id/status",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\",\n  \"reason\": \"Non-payment\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Tenant",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Migrate Tenant",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id/migrate",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRegion\": \"eu-west-1\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Clone Tenant",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id/clone",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newName\": \"Cloned Company\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Tenant Usage",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id/usage",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Set Tenant Quota",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/tenants/:id/quota",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"apiCalls\": 2000000,\n  \"storage\": 200,\n  \"users\": 2000\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Impersonation",
+      "item": [
+        {
+          "name": "Start Impersonation",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/impersonate/sessions",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetUserId\": \"user-uuid\",\n  \"targetTenantId\": \"tenant-uuid\",\n  \"reason\": \"Support investigation\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Impersonation Sessions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/impersonate/sessions",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Impersonation Session",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/impersonate/sessions/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Approve Impersonation",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/impersonate/sessions/:id/approve",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approvedBy\": \"admin-uuid\",\n  \"notes\": \"Approved for support\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject Impersonation",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/impersonate/sessions/:id/reject",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Security policy violation\"\n}"
+            }
+          }
+        },
+        {
+          "name": "End Impersonation",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/platform/v1/impersonate/sessions/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Security",
+      "item": [
+        {
+          "name": "List Security Incidents",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/security/incidents",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Security Incident",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/security/incidents",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"data_breach\",\n  \"severity\": \"critical\",\n  \"description\": \"Unauthorized access attempt detected\",\n  \"affectedTenants\": [\"tenant-uuid\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Security Incident",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/security/incidents/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"contained\",\n  \"resolution\": \"IP blocked and affected users notified\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Threat Intel",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/security/threat-intel",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Add Threat Intel",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/security/threat-intel",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"indicator\": \"malicious-ip.example.com\",\n  \"type\": \"domain\",\n  \"category\": \"malware\",\n  \"confidence\": \"high\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Check Threat",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/security/threat-intel/check",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"indicator\": \"192.168.1.100\",\n  \"type\": \"ip\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Risk Scores",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/security/risk-scores",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Anomalies",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/security/anomalies",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Trigger Security Analysis",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/security/analyze",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"tenant-uuid\",\n  \"scope\": \"authentication_logs\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Run Vulnerability Scan",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/security/vulnerability-scan",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target\": \"tenant-uuid\",\n  \"scanType\": \"full\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Scan Results",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/security/vulnerability-scan/:scanId",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Audit",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/platform/v1/audit?limit=50&cursor=&tenantId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["platform", "v1", "audit"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "cursor", "value": "" },
+                { "key": "tenantId", "value": "" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Audit Log",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/audit/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Export Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/platform/v1/audit/export?format=json&startDate=2025-01-01&endDate=2025-01-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["platform", "v1", "audit", "export"],
+              "query": [
+                { "key": "format", "value": "json" },
+                { "key": "startDate", "value": "2025-01-01" },
+                { "key": "endDate", "value": "2025-01-31" }
+              ]
+            },
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Sign-ins",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/sign-ins",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Compliance Reports",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/compliance/reports",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Compliance Report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/compliance/reports/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Generate Compliance Report",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/compliance/reports",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"SOC2\",\n  \"period\": \"Q1-2025\",\n  \"tenants\": [\"tenant-uuid\"]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Governance",
+      "item": [
+        {
+          "name": "Create Identity",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"user\",\n  \"email\": \"newuser@example.com\",\n  \"tenantId\": \"tenant-uuid\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Identities",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/identities",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Identity",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/identities/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update Identity Status",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/status",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Identity API Key",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/api-keys",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Service Key\",\n  \"scopes\": [\"read\", \"write\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Identity API Keys",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/api-keys",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Roles",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/roles",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "List System Roles",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/roles/system",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Bootstrap Roles",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/roles/bootstrap",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenantId\": \"tenant-uuid\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Assign Role to Identity",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/roles",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleId\": \"role-uuid\",\n  \"expiresAt\": \"2025-12-31T23:59:59Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Identity Roles",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/roles",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Activate JIT Role",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/roles/activate",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleId\": \"role-uuid\",\n  \"context\": { \"reason\": \"urgent_task\" }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Identity Permissions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/permissions",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Regions",
+      "item": [
+        {
+          "name": "List Regions",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/regions",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Region",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/regions/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Region",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/regions",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"EU West\",\n  \"code\": \"eu-west-1\",\n  \"endpoint\": \"https://eu-west-1.uicp.example\",\n  \"isPrimary\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Region",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/regions/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isPrimary\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Set Region Primary",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/regions/:id/primary",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Trigger Region Failover",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/regions/:id/failover",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetRegion\": \"eu-west-2\",\n  \"reason\": \"Primary region degraded\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Region Failovers",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/regions/failovers",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Region Failover",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/regions/failovers/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Complete Region Failover",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/regions/failovers/:id/complete",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Geo-routing",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/regions/geo-routing",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Geo-routing",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/regions/geo-routing",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"countryCode\": \"DE\",\n  \"regionCode\": \"eu-west-1\",\n  \"priority\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Geo-routing",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/regions/geo-routing/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Country Routing",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/regions/geo-routing/:countryCode",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Resilience",
+      "item": [
+        {
+          "name": "Get Health Overview",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/health",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Component Health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/health/:component",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Resilience Incidents",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/incidents",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Resilience Incident",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/incidents/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Resilience Incident",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/resilience/incidents",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"service_degradation\",\n  \"severity\": \"high\",\n  \"affectedServices\": [\"auth-service\"],\n  \"description\": \"Auth service responding slowly\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Resilience Incident",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/resilience/incidents/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\",\n  \"resolution\": \"Scaled up auth service replicas\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Circuit Breakers",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/circuit-breakers",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Circuit Breaker",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/circuit-breakers/:service",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Run Chaos Experiment",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/resilience/chaos/experiments",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Latency Injection\",\n  \"targetService\": \"auth-service\",\n  \"type\": \"latency\",\n  \"duration\": \"5m\",\n  \"parameters\": { \"delayMs\": 500 }\n}"
+            }
+          }
+        },
+        {
+          "name": "List Chaos Experiments",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/chaos/experiments",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Chaos Experiment",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/resilience/chaos/experiments/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update Chaos Experiment",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/resilience/chaos/experiments/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"terminated\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Approvals",
+      "item": [
+        {
+          "name": "List Approvals",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/approvals",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Request Approval",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/approvals/request",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"access_request\",\n  \"requesterId\": \"user-uuid\",\n  \"reason\": \"Need access to production logs\",\n  \"approverId\": \"admin-uuid\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Approve Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/approvals/:id/approve",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approvedBy\": \"admin-uuid\",\n  \"notes\": \"Approved for investigation\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/approvals/:id/reject",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rejectedBy\": \"admin-uuid\",\n  \"reason\": \"Security policy violation\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Escalate Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/approvals/:id/escalate",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"escalatedTo\": \"security-team\",\n  \"reason\": \"High priority security access\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Pending Approvals",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/approvals/pending",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Data Governance",
+      "item": [
+        {
+          "name": "List Consents",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/consents",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Record Consent",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/consents",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identityId\": \"user-uuid\",\n  \"type\": \"marketing\",\n  \"granted\": true,\n  \"expiresAt\": \"2026-01-01T00:00:00Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Identity Consents",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/consents/:identityId",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Withdraw Consent",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/consents/:identityId/withdraw",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"marketing\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Retention Policies",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/retention/policies",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Retention Policy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/retention/policies",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Audit Logs Retention\",\n  \"dataType\": \"audit_logs\",\n  \"retentionDays\": 2555,\n  \"action\": \"purge\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Retention Policy",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/retention/policies/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"retentionDays\": 3650\n}"
+            }
+          }
+        },
+        {
+          "name": "Trigger Data Purge",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/retention/purge",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dataType\": \"audit_logs\",\n  \"olderThan\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create DSAR Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/dsar/requests",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identityId\": \"user-uuid\",\n  \"requestType\": \"export\",\n  \"email\": \"user@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List DSAR Requests",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/dsar/requests",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get DSAR Request",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/dsar/requests/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Verify DSAR Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/dsar/requests/:id/verify",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verificationMethod\": \"email\",\n  \"code\": \"verification-code\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Complete DSAR Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/dsar/requests/:id/complete",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"data\": { \"exportUrl\": \"https://...\" }\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject DSAR Request",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/dsar/requests/:id/reject",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Identity verification failed\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Config",
+      "item": [
+        {
+          "name": "Get Config",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/config",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update Config",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/config",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rateLimitDefault\": 1000,\n  \"sessionTtlSeconds\": 86400\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Config",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/config",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"feature_flags\",\n  \"value\": { \"newAuth\": true }\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Config",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/platform/v1/config/:key",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Get Config History",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/config/history",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Rollback Config",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/config/rollback/:version",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "List Announcements",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/announcements",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Announcement",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/announcements",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Maintenance Notice\",\n  \"message\": \"Scheduled maintenance on Sunday\",\n  \"severity\": \"info\",\n  \"startTime\": \"2025-01-20T02:00:00Z\",\n  \"endTime\": \"2025-01-20T04:00:00Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Announcement",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/platform/v1/announcements/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Export Config",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/config/export",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Import Config",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/config/import",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"config\": { \"rateLimitDefault\": 2000 }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - DID/VC",
+      "item": [
+        {
+          "name": "Register DID",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/did/register",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identityId\": \"user-uuid\",\n  \"method\": \"key\",\n  \"options\": {}\n}"
+            }
+          }
+        },
+        {
+          "name": "Resolve DID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/identities/did/:did",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Issue Verifiable Credential",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/vc/issue",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"issuer\": \"platform\",\n  \"subjectId\": \"user-uuid\",\n  \"type\": \"VerifiedEmail\",\n  \"claims\": { \"email\": \"user@example.com\", \"verified\": true }\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Verifiable Credential",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/vc/verify",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credential\": {}\n}"
+            }
+          }
+        },
+        {
+          "name": "Revoke Verifiable Credential",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/vc/revoke",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credentialId\": \"vc-uuid\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Identity Credentials",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/credentials",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Link DID to Identity",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/identities/:id/link-did",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"did\": \"did:key:abc123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - CA Policies",
+      "item": [
+        {
+          "name": "List CA Policies",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/ca-policies",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create CA Policy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/ca-policies",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"High Security Access\",\n  \"description\": \"Requires MFA and device verification\",\n  \"rules\": {\n    \"requireMfa\": true,\n    \"requireDeviceVerified\": true,\n    \"maxAgeSeconds\": 3600\n  },\n  \"priority\": 100\n}"
+            }
+          }
+        },
+        {
+          "name": "Get CA Policy",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/ca-policies/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Update CA Policy",
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/platform/v1/ca-policies/:id",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priority\": 200\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete CA Policy",
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/platform/v1/ca-policies/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Test CA Policy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/ca-policies/:id/test",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"user-uuid\",\n  \"context\": { \"ip\": \"192.168.1.1\", \"deviceVerified\": true }\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - ZT Policies",
+      "item": [
+        {
+          "name": "List ZT Policies",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/zt-policies",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create ZT Policy",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/platform/v1/zt-policies",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Corporate Network Access\",\n  \"type\": \"network\",\n  \"rules\": {\n    \"allowedNetworks\": [\"10.0.0.0/8\"],\n    \"blockedNetworks\": [\"192.168.0.0/16\"],\n    \"requireVpn\": true\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Device Policy",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/platform/v1/zt-policies/:id/device",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rules\": {\n    \"requireEncryption\": true,\n    \"requireAntivirus\": true,\n    \"osVersions\": [\"14.0\", \"13.0\"]\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Network Policy",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/platform/v1/zt-policies/:id/network",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rules\": {\n    \"allowedNetworks\": [\"10.0.0.0/8\"],\n    \"requireZscaler\": true\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Device Posture",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/platform/v1/device-posture/:identity",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{platformApiKey}}" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Discovery",
+      "item": [
+        {
+          "name": "Discovery",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/discovery",
+            "header": []
+          }
+        },
+        {
+          "name": "OpenAPI Spec",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/openapi",
+            "header": []
+          }
+        },
+        {
+          "name": "SDK Descriptor",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/sdk-descriptor",
+            "header": []
+          }
+        },
+        {
+          "name": "Tenant Manifest",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/manifest",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Manifest Preview",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/manifest/preview",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"moduleKey\": \"auth\",\n  \"version\": \"1.0.0\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Provider Routing Preview",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/provider-routing/preview",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel\": \"sms\",\n  \"country\": \"US\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Extensions Preview",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/extensions/preview",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"extensionKey\": \"custom-auth\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Apps",
+      "item": [
+        {
+          "name": "Get App",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/apps/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create App",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/apps",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Web App\",\n  \"type\": \"spa\",\n  \"redirectUris\": [\"https://myapp.com/callback\"],\n  \"allowedOrigins\": [\"https://myapp.com\"]\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - App Secrets",
+      "item": [
+        {
+          "name": "List App Secrets",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/app-secrets",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Generate App Secret",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/app-secrets",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"appId\": \"app-uuid\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Domains",
+      "item": [
+        {
+          "name": "Get Domain",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/domains/:domain",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Domain",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/domains",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"domain\": \"auth.example.com\",\n  \"type\": \"auth\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - OAuth",
+      "item": [
+        {
+          "name": "OAuth Authorize",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/platform/oauth/authorize?client_id=xxx&redirect_uri=https://app.com/callback&response_type=code&scope=profile&state=xyz",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "platform", "oauth", "authorize"],
+              "query": [
+                { "key": "client_id", "value": "xxx" },
+                { "key": "redirect_uri", "value": "https://app.com/callback" },
+                { "key": "response_type", "value": "code" },
+                { "key": "scope", "value": "profile" },
+                { "key": "state", "value": "xyz" }
+              ]
+            },
+            "header": []
+          }
+        },
+        {
+          "name": "OAuth Token",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/oauth/token",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "authorization_code" },
+                { "key": "code", "value": "auth-code" },
+                { "key": "redirect_uri", "value": "https://app.com/callback" },
+                { "key": "client_id", "value": "xxx" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Platform - Webhooks",
+      "item": [
+        {
+          "name": "Get Webhook",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/v1/platform/webhooks/:id",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ]
+          }
+        },
+        {
+          "name": "Create Webhook",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/v1/platform/webhooks",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://yourapp.com/webhooks/uicp\",\n  \"events\": [\"user.created\", \"user.updated\", \"session.created\"],\n  \"secret\": \"whsec_xxx\"\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

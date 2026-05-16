@@ -1,9 +1,12 @@
-import { Injectable, CanActivate, ExecutionContext, Inject, ServiceUnavailableException } from '@nestjs/common';
-import { QueueAdapter } from '../../../../src/infrastructure/queue/bullmq-queue.adapter';
+import { Injectable, CanActivate, ExecutionContext, Inject, ServiceUnavailableException, Logger } from '@nestjs/common';
+import { BullMqQueueAdapter } from '../../../infrastructure/queue/bullmq-queue.adapter';
+import { INJECTION_TOKENS } from '../../../application/ports/injection-tokens';
 
 @Injectable()
 export class QueueBackpressureGuard implements CanActivate {
-  constructor(@Inject('QUEUE_ADAPTER') private readonly queue: QueueAdapter) {}
+  private readonly logger = new Logger(QueueBackpressureGuard.name);
+
+  constructor(@Inject(INJECTION_TOKENS.QUEUE_PORT) private readonly queue: BullMqQueueAdapter) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
@@ -31,7 +34,7 @@ export class QueueBackpressureGuard implements CanActivate {
       if (e instanceof ServiceUnavailableException) throw e;
       // If Redis is down for the queue check itself, degrade to fail-open for the HTTP layer
       // (The actual queue addition in the service will fail anyway if Redis is truly down)
-      console.warn('QueueBackpressureGuard failed to evaluate metrics', e);
+      this.logger.warn('QueueBackpressureGuard failed to evaluate metrics: ' + e?.message);
     }
 
     return true;

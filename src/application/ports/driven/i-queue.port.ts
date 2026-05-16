@@ -8,6 +8,8 @@ export interface EnqueueOptions {
   delayMs?: number;
   /** Maximum number of retry attempts on failure. */
   maxAttempts?: number;
+  /** Deterministic job id used to deduplicate idempotent logical sends. */
+  idempotencyKey?: string;
 }
 
 /**

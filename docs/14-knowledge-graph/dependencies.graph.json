@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-dependencies",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "app-module",
+      "type": "module",
+      "name": "Root Application Module",
+      "criticality": "CRITICAL",
+      "dependsOn": ["application-module", "infrastructure-modules", "interface-modules"],
+      "failureImpact": ["app-startup", "module-initialization"]
+    },
+    {
+      "id": "application-module",
+      "type": "module",
+      "name": "Application Module",
+      "criticality": "CRITICAL",
+      "dependsOn": ["domain-module", "port-interfaces"],
+      "failureImpact": ["use-cases", "business-logic"]
+    },
+    {
+      "id": "domain-module",
+      "type": "module",
+      "name": "Domain Module",
+      "criticality": "CRITICAL",
+      "dependsOn": [],
+      "failureImpact": ["domain-logic", "entities"]
+    },
+    {
+      "id": "infrastructure-cache-module",
+      "type": "module",
+      "name": "Cache Infrastructure Module",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-cache-adapter"],
+      "failureImpact": ["caching-layer"]
+    },
+    {
+      "id": "infrastructure-db-module",
+      "type": "module",
+      "name": "Database Infrastructure Module",
+      "criticality": "CRITICAL",
+      "dependsOn": ["mysql-repositories"],
+      "failureImpact": ["persistence-layer"]
+    },
+    {
+      "id": "infrastructure-queue-module",
+      "type": "module",
+      "name": "Queue Infrastructure Module",
+      "criticality": "HIGH",
+      "dependsOn": ["bullmq-queue-adapter"],
+      "failureImpact": ["async-processing"]
+    },
+    {
+      "id": "infrastructure-email-module",
+      "type": "module",
+      "name": "Email Infrastructure Module",
+      "criticality": "HIGH",
+      "dependsOn": ["email-adapters"],
+      "failureImpact": ["email-delivery"]
+    },
+    {
+      "id": "infrastructure-otp-module",
+      "type": "module",
+      "name": "OTP Infrastructure Module",
+      "criticality": "CRITICAL",
+      "dependsOn": ["otp-adapters"],
+      "failureImpact": ["otp-delivery"]
+    },
+    {
+      "id": "infrastructure-governance-module",
+      "type": "module",
+      "name": "Governance Infrastructure Module",
+      "criticality": "MEDIUM",
+      "dependsOn": ["governance-services"],
+      "failureImpact": ["rbac", "policy-enforcement"]
+    },
+    {
+      "id": "interface-http-module",
+      "type": "module",
+      "name": "HTTP Interface Module",
+      "criticality": "CRITICAL",
+      "dependsOn": ["http-guards", "http-interceptors"],
+      "failureImpact": ["http-api"]
+    },
+    {
+      "id": "interface-grpc-module",
+      "type": "module",
+      "name": "gRPC Interface Module",
+      "criticality": "HIGH",
+      "dependsOn": ["grpc-services"],
+      "failureImpact": ["grpc-api"]
+    },
+    {
+      "id": "http-guards",
+      "type": "component",
+      "name": "HTTP Guards (Auth, RateLimit)",
+      "criticality": "CRITICAL",
+      "dependsOn": ["token-service", "rate-limiter"],
+      "failureImpact": ["request-authentication"]
+    },
+    {
+      "id": "http-interceptors",
+      "type": "component",
+      "name": "HTTP Interceptors (Logging, Tracing)",
+      "criticality": "MEDIUM",
+      "dependsOn": ["tracing-adapter", "logger-service"],
+      "failureImpact": ["request-logging"]
+    },
+    {
+      "id": "port-interfaces",
+      "type": "module",
+      "name": "Port Interfaces Module",
+      "criticality": "CRITICAL",
+      "dependsOn": [],
+      "failureImpact": ["dependency-inversion", "adapters"]
+    },
+    {
+      "id": "redis-cache-adapter",
+      "type": "adapter",
+      "name": "Redis Cache Adapter",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-cluster"],
+      "failureImpact": ["cache-operations"]
+    },
+    {
+      "id": "bullmq-queue-adapter",
+      "type": "adapter",
+      "name": "BullMQ Queue Adapter",
+      "criticality": "HIGH",
+      "dependsOn": ["redis-cluster"],
+      "failureImpact": ["queue-operations"]
+    },
+    {
+      "id": "email-adapters",
+      "type": "adapters",
+      "name": "Email Adapters (SMTP, Resend, Maileroo)",
+      "criticality": "HIGH",
+      "dependsOn": ["email-providers"],
+      "failureImpact": ["email-sending"]
+    },
+    {
+      "id": "otp-adapters",
+      "type": "adapters",
+      "name": "OTP Adapters (Firebase, SMTP, MSG91)",
+      "criticality": "CRITICAL",
+      "dependsOn": ["sms-providers"],
+      "failureImpact": ["otp-sending"]
+    },
+    {
+      "id": "mysql-repositories",
+      "type": "repositories",
+      "name": "MySQL Repositories",
+      "criticality": "CRITICAL",
+      "dependsOn": ["mysql-primary"],
+      "failureImpact": ["data-access"]
+    },
+    {
+      "id": "governance-services",
+      "type": "services",
+      "name": "Governance Services",
+      "criticality": "MEDIUM",
+      "dependsOn": ["mysql-policy-repo"],
+      "failureImpact": ["policy-enforcement"]
+    }
+  ],
+  "edges": [
+    { "from": "app-module", "to": "application-module", "label": "imports" },
+    { "from": "app-module", "to": "infrastructure-db-module", "label": "imports" },
+    { "from": "app-module", "to": "interface-http-module", "label": "imports" },
+    { "from": "application-module", "to": "domain-module", "label": "imports" },
+    { "from": "application-module", "to": "port-interfaces", "label": "uses" },
+    { "from": "interface-http-module", "to": "application-module", "label": "imports" },
+    { "from": "interface-http-module", "to": "http-guards", "label": "uses" },
+    { "from": "interface-http-module", "to": "http-interceptors", "label": "uses" },
+    { "from": "infrastructure-cache-module", "to": "redis-cache-adapter", "label": "uses" },
+    { "from": "infrastructure-queue-module", "to": "bullmq-queue-adapter", "label": "uses" },
+    { "from": "infrastructure-email-module", "to": "email-adapters", "label": "uses" },
+    { "from": "infrastructure-otp-module", "to": "otp-adapters", "label": "uses" },
+    { "from": "infrastructure-governance-module", "to": "governance-services", "label": "uses" }
+  ]
+}

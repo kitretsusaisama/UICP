@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-services",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "unified-auth-service",
+      "type": "service",
+      "name": "Unified Auth Service",
+      "criticality": "CRITICAL",
+      "protocols": ["REST", "gRPC"],
+      "dependsOn": ["token-service", "session-service", "credential-service", "api-key-service"],
+      "failureImpact": ["login", "signup", "oauth", "token-validation"]
+    },
+    {
+      "id": "otp-service",
+      "type": "service",
+      "name": "OTP Service",
+      "criticality": "CRITICAL",
+      "protocols": ["REST", "Internal"],
+      "dependsOn": ["notification-dispatcher", "tenant-provider-registry", "redis-cache"],
+      "failureImpact": ["otp-delivery", "phone-verification", "email-verification", "2fa"]
+    },
+    {
+      "id": "token-service",
+      "type": "service",
+      "name": "Token Service",
+      "criticality": "CRITICAL",
+      "protocols": ["Internal"],
+      "dependsOn": ["kms-service", "redis-cache"],
+      "failureImpact": ["jwt-generation", "token-validation", "refresh-tokens"]
+    },
+    {
+      "id": "session-service",
+      "type": "service",
+      "name": "Session Service",
+      "criticality": "CRITICAL",
+      "protocols": ["Internal"],
+      "dependsOn": ["auth-session-repository", "redis-session-store"],
+      "failureImpact": ["session-management", "logout", "session-revocation"]
+    },
+    {
+      "id": "api-key-service",
+      "type": "service",
+      "name": "API Key Service",
+      "criticality": "HIGH",
+      "protocols": ["Internal", "REST"],
+      "dependsOn": ["kms-service", "mysql-api-key-repository", "redis-cache"],
+      "failureImpact": ["api-key-authentication", "service-auth"]
+    },
+    {
+      "id": "credential-service",
+      "type": "service",
+      "name": "Credential Service",
+      "criticality": "CRITICAL",
+      "protocols": ["Internal"],
+      "dependsOn": ["encryption-adapter", "mysql-credential-repository"],
+      "failureImpact": ["password-management", "credential-verification"]
+    },
+    {
+      "id": "oauth-service",
+      "type": "service",
+      "name": "OAuth Service",
+      "criticality": "HIGH",
+      "protocols": ["REST", "OAuth2"],
+      "dependsOn": ["token-service", "external-identity-providers"],
+      "failureImpact": ["social-login", "sso", "oauth-callbacks"]
+    },
+    {
+      "id": "provider-routing-service",
+      "type": "service",
+      "name": "Provider Routing Service",
+      "criticality": "HIGH",
+      "protocols": ["Internal"],
+      "dependsOn": ["mysql-provider-routing-repository", "provider-registry"],
+      "failureImpact": ["sms-delivery", "email-delivery", "provider-selection"]
+    },
+    {
+      "id": "webhook-service",
+      "type": "service",
+      "name": "Webhook Service",
+      "criticality": "MEDIUM",
+      "protocols": ["HTTP"],
+      "dependsOn": ["webhook-processing-queue", "kms-service"],
+      "failureImpact": ["event-notifications", "integration-webhooks"]
+    },
+    {
+      "id": "audit-service",
+      "type": "service",
+      "name": "Audit Service",
+      "criticality": "HIGH",
+      "protocols": ["Internal"],
+      "dependsOn": ["mysql-audit-log-repository", "audit-logging-queue"],
+      "failureImpact": ["audit-trails", "compliance-logging"]
+    },
+    {
+      "id": "governance-service",
+      "type": "service",
+      "name": "Governance Service",
+      "criticality": "MEDIUM",
+      "protocols": ["Internal"],
+      "dependsOn": ["policy-service", "role-service", "abac-policy-engine"],
+      "failureImpact": ["rbac", "abac", "policy-enforcement"]
+    },
+    {
+      "id": "extension-executor",
+      "type": "service",
+      "name": "Extension Executor Service",
+      "criticality": "LOW",
+      "protocols": ["Internal"],
+      "dependsOn": ["extension-registry", "extension-binding-repository"],
+      "failureImpact": ["custom-extensions", "tenant-hooks"]
+    },
+    {
+      "id": "kms-service",
+      "type": "service",
+      "name": "KMS Service",
+      "criticality": "CRITICAL",
+      "protocols": ["Internal"],
+      "dependsOn": ["encryption-adapter"],
+      "failureImpact": ["encryption", "key-management", "token-signing"]
+    },
+    {
+      "id": "notification-dispatcher",
+      "type": "service",
+      "name": "Notification Dispatcher Service",
+      "criticality": "HIGH",
+      "protocols": ["Internal"],
+      "dependsOn": ["msg91-sms-provider", "resend-email-provider", "maileroo-email-provider"],
+      "failureImpact": ["sms-dispatch", "email-dispatch", "otp-dispatch"]
+    },
+    {
+      "id": "tenant-provider-registry",
+      "type": "service",
+      "name": "Tenant Provider Registry",
+      "criticality": "HIGH",
+      "protocols": ["Internal"],
+      "dependsOn": ["mysql-otp-provider-repository"],
+      "failureImpact": ["provider-selection", "tenant-specific-routing"]
+    }
+  ],
+  "edges": [
+    { "from": "unified-auth-service", "to": "token-service", "label": "issues" },
+    { "from": "unified-auth-service", "to": "session-service", "label": "manages" },
+    { "from": "unified-auth-service", "to": "credential-service", "label": "validates" },
+    { "from": "unified-auth-service", "to": "api-key-service", "label": "authenticates" },
+    { "from": "otp-service", "to": "notification-dispatcher", "label": "dispatches" },
+    { "from": "otp-service", "to": "tenant-provider-registry", "label": "selects" },
+    { "from": "token-service", "to": "kms-service", "label": "signs" },
+    { "from": "provider-routing-service", "to": "tenant-provider-registry", "label": "routes" },
+    { "from": "notification-dispatcher", "to": "msg91-sms-provider", "label": "uses" },
+    { "from": "notification-dispatcher", "to": "resend-email-provider", "label": "uses" },
+    { "from": "notification-dispatcher", "to": "maileroo-email-provider", "label": "uses" }
+  ]
+}

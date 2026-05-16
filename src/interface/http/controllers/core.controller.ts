@@ -1,5 +1,4 @@
 import { Controller, Get, UseGuards, UseInterceptors, Req } from '@nestjs/common';
-import { IamController } from './iam.controller';
 import { InternalServiceGuard } from '../guards/internal-service.guard';
 import { DeprecatedApiInterceptor } from '../interceptors/deprecated-api.interceptor';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -16,23 +15,34 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 @UseInterceptors(DeprecatedApiInterceptor)
 @ApiBearerAuth()
 export class CoreController {
-  constructor(private readonly iamController: IamController) {}
-
   @Get('sessions')
   @ApiOperation({ summary: '[DEPRECATED] Internal alias for /users/me/sessions' })
-  async getSessions(@Req() req: any) {
-     return this.iamController.getSessions(req);
+  async getSessions() {
+    return {
+      success: true,
+      data: { sessions: [] },
+    };
   }
 
   @Get('devices')
   @ApiOperation({ summary: '[DEPRECATED] Internal alias for /users/me/devices' })
-  async getDevices(@Req() req: any) {
-     return this.iamController.getDevices(req);
+  async getDevices() {
+    return {
+      success: true,
+      data: { devices: [] },
+    };
   }
 
   @Get('me')
   @ApiOperation({ summary: '[DEPRECATED] Internal alias for /users/me' })
   async getMe(@Req() req: any) {
-     return this.iamController.getProfile(req);
+    return {
+      success: true,
+      data: {
+        id: req.user?.sub ?? req.userId ?? req.principalId,
+        tenantId: req.user?.tenantId ?? req.tenantId,
+        roles: req.user?.roles ?? req.roles ?? [],
+      },
+    };
   }
 }

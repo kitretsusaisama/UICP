@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-observability",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "prometheus-metrics",
+      "type": "observability",
+      "name": "Prometheus Metrics",
+      "criticality": "HIGH",
+      "dependsOn": ["prom-client-adapter"],
+      "failureImpact": ["metrics-collection", "alerting"]
+    },
+    {
+      "id": "opentelemetry-tracing",
+      "type": "observability",
+      "name": "OpenTelemetry Tracing",
+      "criticality": "HIGH",
+      "dependsOn": ["otel-tracer-adapter"],
+      "failureImpact": ["trace-collection", "distributed-tracing"]
+    },
+    {
+      "id": "pino-logger",
+      "type": "observability",
+      "name": "Pino Structured Logger",
+      "criticality": "HIGH",
+      "dependsOn": ["log-aggregator"],
+      "failureImpact": ["log-collection", "debugging"]
+    },
+    {
+      "id": "health-check-endpoint",
+      "type": "observability",
+      "name": "Health Check Endpoint",
+      "criticality": "CRITICAL",
+      "dependsOn": ["health-check-service"],
+      "failureImpact": ["liveness-probe", "readiness-probe"]
+    },
+    {
+      "id": "metrics-dashboard",
+      "type": "observability",
+      "name": "Metrics Dashboard (Grafana)",
+      "criticality": "HIGH",
+      "dependsOn": ["prometheus-metrics"],
+      "failureImpact": ["visualization", "monitoring"]
+    },
+    {
+      "id": "trace-dashboard",
+      "type": "observability",
+      "name": "Trace Dashboard (Jaeger/Tempo)",
+      "criticality": "MEDIUM",
+      "dependsOn": ["opentelemetry-tracing"],
+      "failureImpact": ["trace-visualization", "debugging"]
+    },
+    {
+      "id": "alerting-system",
+      "type": "observability",
+      "name": "Alerting System (PagerDuty/OpsGenie)",
+      "criticality": "CRITICAL",
+      "dependsOn": ["prometheus-metrics", "opentelemetry-tracing"],
+      "failureImpact": ["incident-response", "on-call"]
+    },
+    {
+      "id": "log-aggregation",
+      "type": "observability",
+      "name": "Log Aggregation (ELK/Datadog)",
+      "criticality": "HIGH",
+      "dependsOn": ["pino-logger"],
+      "failureImpact": ["log-search", "log-analysis"]
+    },
+    {
+      "id": "service-level-indicators",
+      "type": "observability",
+      "name": "SLI Monitoring",
+      "criticality": "HIGH",
+      "dependsOn": ["prometheus-metrics"],
+      "failureImpact": ["slo-tracking", "availability-metrics"]
+    },
+    {
+      "id": "error-tracking",
+      "type": "observability",
+      "name": "Error Tracking (Sentry)",
+      "criticality": "MEDIUM",
+      "dependsOn": ["error-tracker"],
+      "failureImpact": ["exception-tracking", "debugging"]
+    },
+    {
+      "id": "api-metrics",
+      "type": "observability",
+      "name": "API Metrics Collector",
+      "criticality": "HIGH",
+      "dependsOn": ["api-metrics-port"],
+      "failureImpact": ["api-monitoring", "performance-metrics"]
+    },
+    {
+      "id": "tenant-analytics",
+      "type": "observability",
+      "name": "Tenant Analytics Service",
+      "criticality": "MEDIUM",
+      "dependsOn": ["analytics-collector"],
+      "failureImpact": ["usage-metrics", "billing-metrics"]
+    }
+  ],
+  "edges": [
+    { "from": "prometheus-metrics", "to": "metrics-dashboard", "label": "visualizes" },
+    { "from": "opentelemetry-tracing", "to": "trace-dashboard", "label": "visualizes" },
+    { "from": "pino-logger", "to": "log-aggregation", "label": "sends" },
+    { "from": "prometheus-metrics", "to": "alerting-system", "label": "triggers" },
+    { "from": "opentelemetry-tracing", "to": "alerting-system", "label": "triggers" },
+    { "from": "health-check-endpoint", "to": "opentelemetry-tracing", "label": "instruments" },
+    { "from": "api-metrics", "to": "prometheus-metrics", "label": "exports" },
+    { "from": "service-level-indicators", "to": "prometheus-metrics", "label": "queries" },
+    { "from": "tenant-analytics", "to": "metrics-dashboard", "label": "displays" }
+  ]
+}

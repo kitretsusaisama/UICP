@@ -1,21 +1,18 @@
-# Dependency directories
-node_modules/
-dist/
-coverage/
-
-# Misc
-.DS_Store
-*.log
-.env
-.env.*
-!.env.example
-
-src/infrastructure/db/mysql/repositories/soc/mysql-soc-alert.repository.spec.ts
-src/infrastructure/db/mysql/repositories/soc/mysql-incident.repository.spec.ts
-src/application/services/admin/audit.service.spec.ts
+# Dependencies
 node_modules/
 dist/
 coverage/
 .npm/
-dist/
-node_modules/
+
+# Build output
+apps/web/.next/
+packages/sdk/dist/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Misc
+.DS_Store
+*.log

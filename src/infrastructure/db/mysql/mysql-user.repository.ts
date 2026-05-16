@@ -9,16 +9,7 @@ import { Credential } from '../../../domain/entities/credential.entity';
 import { MYSQL_POOL, DbPool, DbConnection } from './mysql.module';
 import { ITracerPort } from '../../../application/ports/driven/i-tracer.port';
 import { INJECTION_TOKENS } from '../../../application/ports/injection-tokens';
-/** Convert a UUID string to a 16-byte Buffer for BINARY(16) columns. */
-function uuidToBuffer(uuid: string): Buffer {
-  return Buffer.from(uuid.replace(/-/g, ''), 'hex');
-}
-
-/** Convert a 16-byte Buffer back to a UUID string. */
-function bufferToUuid(buf: Buffer | string): string {
-  const hex = Buffer.isBuffer(buf) ? buf.toString('hex') : Buffer.from(buf).toString('hex');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
+import { uuidToBuffer, bufferToUuid } from './uuid-utils';
 
 interface UserRow {
   id: Buffer;

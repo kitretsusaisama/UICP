@@ -47,10 +47,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
-    const res = ctx.getResponse<{ status(code: number): { json(body: unknown): void } }>();
+    const res = ctx.getResponse<{ status(code: number): { json(body: unknown): void }; setHeader(key: string, value: string): void }>();
     const req = ctx.getRequest<Record<string, unknown> & { headers: Record<string, string | string[] | undefined> }>();
 
-    const { status, errorCode, message, details } = this.classify(exception);
+    const { status, errorCode, message, details, retryAfter } = this.classify(exception);
 
     const requestId =
       (this.cls?.get('requestId') as string | undefined) ??
@@ -60,6 +60,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const tenantId =
       (this.cls?.get('tenantId') as string | undefined) ??
       (req['tenantId'] as string | undefined);
+
+    const correlationId =
+      (req.headers?.['x-correlation-id'] as string | undefined) ??
+      requestId;
 
     // Determine error category from exception type
     const errorCategory = this.categorize(exception);
@@ -93,6 +97,20 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error_code: errorCode,
     });
 
+    // Add error tracking headers
+    const errorId = `err_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    res.setHeader('X-Correlation-ID', correlationId);
+    res.setHeader('X-Request-ID', requestId);
+    res.setHeader('X-Error-ID', errorId);
+
+    // Add rate limit headers when applicable
+    if (status === 429) {
+      res.setHeader('X-RateLimit-Limit', '1000');
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', String(Math.floor(Date.now() / 1000) + 60));
+      res.setHeader('Retry-After', '60');
+    }
+
     res.status(status).json({
       success: false,
       error: {
@@ -123,11 +141,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     errorCode: string;
     message: string;
     details?: unknown;
+    retryAfter?: number;
   } {
     // Domain business rule violations
     if (exception instanceof DomainException) {
       return {
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        status: exception.toHttpStatus(),
         errorCode: exception.errorCode,
         message: exception.message,
       };
@@ -145,8 +164,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // Schema / input validation failures
     if (exception instanceof SchemaValidationException) {
       return {
-        status: HttpStatus.BAD_REQUEST,
-        errorCode: 'SCHEMA_VALIDATION_FAILED',
+        status: exception.httpStatus,
+        errorCode: 'validation_error',
         message: exception.message,
         details: exception.errors,
       };
@@ -158,6 +177,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         status: HttpStatus.SERVICE_UNAVAILABLE,
         errorCode: exception.errorCode,
         message: exception.message,
+      };
+    }
+
+    // Rate limit exceeded
+    if (exception instanceof HttpException && exception.getStatus() === 429) {
+      return {
+        status: HttpStatus.TOO_MANY_REQUESTS,
+        errorCode: 'RATE_LIMIT_EXCEEDED',
+        message: 'Rate limit exceeded. Please try again later.',
+        retryAfter: 60,
       };
     }
 

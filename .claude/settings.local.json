@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import graphify\")",
+      "Bash(pip install *)",
+      "Bash(npm test *)",
+      "Bash(npm run *)",
+      "Bash(npx tsx *)",
+      "Bash(npm start *)",
+      "Bash(Get-ChildItem \"C:\\\\Users\\\\HP\\\\Downloads\\\\ccr\\\\UICP\\\\migrations\\\\\" | Sort-Object Name | Select-Object Name *)",
+      "Bash(npx tsc *)",
+      "Bash(curl -s http://localhost:3000/openapi.json -o \"C:\\\\Users\\\\HP\\\\Downloads\\\\ccr\\\\UICP\\\\openapi.json\")",
+      "Bash(npx openapi2postmanv2 *)",
+      "Bash(node scripts/generate-postman.js)",
+      "Bash(node -e \"console.log\\(Object.keys\\(JSON.parse\\(fs.readFileSync\\('C:/Users/HP/Downloads/ccr/UICP/openapi.json'\\)\\).paths\\).length + ' endpoints'\\)\")",
+      "Bash(powershell *)",
+      "Bash(gh pr create --title 'feat\\(api-key\\): ULID-based dual key API authentication system' --body ' *)",
+      "Skill(ecc:api-design)",
+      "Bash(New-Item *)",
+      "Bash(Get-ChildItem -Directory -Force)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-Content -Path \"C:\\\\Users\\\\HP\\\\Downloads\\\\ccr\\\\UICP\\\\docs\\\\08-data\\\\data.md\" -Raw)",
+      "Bash(Select-String -Pattern \"Roles and Permissions\" -Context 0,50)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(node scripts/seed-db.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(Select-String -Pattern '\"db|' -Context 0,2)",
+      "Bash(Select-Object -First 30)",
+      "Bash(npx ts-node -e ' *)",
+      "Bash(npx ts-node *)"
+    ]
+  }
+}

@@ -5,10 +5,7 @@ import {
   TenantManifestOverrideRecord,
 } from '../../../application/ports/driven/i-manifest.repository';
 import { MYSQL_POOL, DbPool } from './mysql.module';
-
-function uuidToBuffer(uuid: string): Buffer {
-  return Buffer.from(uuid.replace(/-/g, ''), 'hex');
-}
+import { uuidToBuffer } from './uuid-utils';
 
 interface ModuleManifestRow {
   module_key: string;

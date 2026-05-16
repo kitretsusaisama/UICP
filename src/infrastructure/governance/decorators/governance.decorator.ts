@@ -1,11 +1,18 @@
 import { SetMetadata } from '@nestjs/common';
 
+export const GOVERNANCE_METADATA_KEY = 'uicp:governance';
+
 export interface GovernanceMetadata {
   owner: string;
-  risk: 'low' | 'medium' | 'high' | 'critical';
-  cost?: 'normal' | 'cost-critical';
-  auth?: 'public' | 'user' | 'admin' | 'internal' | 'client';
+  auth: 'public' | 'authenticated' | 'internal' | 'service';
+  capabilities?: string[];
 }
 
-// In the dual-lock system, the runtime decorator must hold the exact same keys as the manifest checks
-export const Governance = (meta: GovernanceMetadata) => SetMetadata('governance', meta);
+export function Governance(metadataOrOwner: GovernanceMetadata | string, ...capabilities: string[]) {
+  const metadata: GovernanceMetadata =
+    typeof metadataOrOwner === 'string'
+      ? { owner: metadataOrOwner, auth: 'authenticated', capabilities }
+      : metadataOrOwner;
+
+  return SetMetadata('governance', metadata);
+}

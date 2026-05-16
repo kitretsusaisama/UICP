@@ -5,6 +5,8 @@ import { OtpSendWorker } from './workers/otp-send.worker';
 import { AuditWriteWorker } from './workers/audit-write.worker';
 import { SocAlertWorker } from './workers/soc-alert.worker';
 import { OutboxRelayWorker } from './workers/outbox-relay.worker';
+import { EmailSendWorker } from './workers/communication/email-send.worker';
+import { ProviderHealthCheckWorker } from './workers/communication/provider-health-check.worker';
 import { INJECTION_TOKENS } from '../../application/ports/injection-tokens';
 import { OtpModule } from '../otp/otp.module';
 import { RepositoriesModule } from '../db/mysql/repositories.module';
@@ -30,6 +32,8 @@ import { RepositoriesModule } from '../db/mysql/repositories.module';
     AuditWriteWorker,
     SocAlertWorker,
     OutboxRelayWorker,
+    EmailSendWorker,
+    ProviderHealthCheckWorker,
   ],
   exports: [
     BullMqQueueAdapter,

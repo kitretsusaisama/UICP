@@ -34,9 +34,13 @@ export class ApiKeyGuard implements CanActivate {
     }
 
     if (parsed.signature) {
+      const hmacSecret = process.env.API_KEY_HMAC_SECRET;
+      if (!hmacSecret) {
+        throw new Error('CRITICAL: API_KEY_HMAC_SECRET environment variable is not set');
+      }
       const isValid = verifySignature(
         apiKey,
-        process.env.API_KEY_HMAC_SECRET || 'default-secret',
+        hmacSecret,
         keyEntity.tenantId
       );
       if (!isValid) {

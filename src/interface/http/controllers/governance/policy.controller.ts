@@ -1,19 +1,25 @@
 import { Controller, Post, Get, Delete, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { z } from 'zod';
 import { PolicyService } from '../../../../application/services/governance/policy.service';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
+import { UnifiedAuthGuard } from '../../guards/unified-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
 import { PolicyRules } from '../../../../domain/entities/governance/policy.entity';
 import { EvaluationContext } from '../../../../domain/value-objects/abac-condition.vo';
+import { ZodValidationPipe } from '../../pipes/zod-validation.pipe';
+import { createPolicyDto, testPolicyDto } from '../../dtos/governance/policy.dto';
 
 @Controller('v1/policies')
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(UnifiedAuthGuard, TenantGuard)
 export class PolicyController {
   constructor(private readonly policyService: PolicyService) {}
 
   @Post()
-  async createPolicy(@Req() req: any, @Body() body: { name: string; rules: PolicyRules; description?: string }) {
+  async createPolicy(
+    @Req() req: any,
+    @Body(new ZodValidationPipe(createPolicyDto)) body: z.infer<typeof createPolicyDto>,
+  ) {
     const tenantId = req.tenantId;
-    const policy = await this.policyService.createPolicy(tenantId, body.name, body.rules, body.description);
+    const policy = await this.policyService.createPolicy(tenantId, body.name, body.rules as PolicyRules, body.description);
 
     return {
       success: true,
@@ -48,9 +54,13 @@ export class PolicyController {
   }
 
   @Post(':id/test')
-  async testPolicy(@Req() req: any, @Param('id') id: string, @Body() body: { context: Partial<EvaluationContext> }) {
+  async testPolicy(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(testPolicyDto)) body: z.infer<typeof testPolicyDto>,
+  ) {
     const tenantId = req.tenantId;
-    const result = await this.policyService.testPolicy(id, tenantId, body.context);
+    const result = await this.policyService.testPolicy(id, tenantId, body.context as Partial<EvaluationContext>);
 
     return {
       success: true,

@@ -4,10 +4,7 @@ import {
   ProviderRoutingRuleRecord,
 } from '../../../application/ports/driven/i-provider-routing.repository';
 import { MYSQL_POOL, DbPool } from './mysql.module';
-
-function uuidToBuffer(uuid: string): Buffer {
-  return Buffer.from(uuid.replace(/-/g, ''), 'hex');
-}
+import { uuidToBuffer } from './uuid-utils';
 
 interface ProviderRoutingRow {
   tenant_id: Buffer | null;

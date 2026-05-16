@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { INJECTION_TOKENS } from '../../../application/ports/injection-tokens';
+import { DatabaseModule } from './database.module';
 import { MysqlUserRepository } from './mysql-user.repository';
 import { MysqlIdentityRepository } from './mysql-identity.repository';
 import { MysqlOutboxRepository } from './mysql-outbox.repository';
@@ -27,6 +28,8 @@ import { MysqlPolicyRepository } from './repositories/governance/mysql-policy.re
 import { MysqlSocAlertRepository } from './repositories/soc/mysql-soc-alert.repository';
 import { MysqlIncidentRepository } from './repositories/soc/mysql-incident.repository';
 import { MysqlAuditLogRepository } from './mysql-audit-log.repository';
+import { MysqlSecurityEventsRepository } from './mysql-security-events.repository';
+import { MysqlApiMetricsRepository } from './mysql-api-metrics.repository';
 
 import { APP_REPOSITORY } from '../../../domain/repositories/platform/app.repository.interface';
 import { APP_SECRET_REPOSITORY } from '../../../domain/repositories/platform/app-secret.repository.interface';
@@ -39,10 +42,22 @@ import { POLICY_REPOSITORY } from '../../../domain/repositories/governance/polic
 
 import { SOC_ALERT_REPOSITORY } from '../../../domain/repositories/soc/soc-alert.repository.interface';
 import { INCIDENT_REPOSITORY } from '../../../domain/repositories/soc/incident.repository.interface';
-import { AUDIT_LOG_REPOSITORY } from '../../../domain/repositories/audit-log.repository.interface';
+import { TENANT_API_KEY_REPOSITORY } from '../../../domain/repositories/tenant-api-key.repository.interface';
+import { MySqlTenantApiKeyRepository } from './mysql-tenant-api-key.repository';
+
+// Platform Repositories
+import { MysqlPlatformIdentityRepository } from './repositories/platform/mysql-platform-identity.repository';
+import { MysqlPlatformApiKeyRepository } from './repositories/platform/mysql-platform-api-key.repository';
+import { MysqlPlatformRoleRepository } from './repositories/platform/mysql-platform-role.repository';
+import { MysqlPlatformRoleAssignmentRepository } from './repositories/platform/mysql-platform-role-assignment.repository';
+
+import { PLATFORM_IDENTITY_REPOSITORY } from '../../../domain/repositories/platform/platform-identity.repository.interface';
+import { PLATFORM_API_KEY_REPOSITORY } from '../../../domain/repositories/platform/platform-api-key.repository.interface';
+import { PLATFORM_ROLE_REPOSITORY, PLATFORM_ROLE_ASSIGNMENT_REPOSITORY } from '../../../domain/repositories/platform/platform-role.repository.interface';
 
 @Global()
 @Module({
+  imports: [DatabaseModule],
   providers: [
     { provide: INJECTION_TOKENS.USER_REPOSITORY,        useClass: MysqlUserRepository },
     { provide: INJECTION_TOKENS.IDENTITY_REPOSITORY,    useClass: MysqlIdentityRepository },
@@ -70,7 +85,17 @@ import { AUDIT_LOG_REPOSITORY } from '../../../domain/repositories/audit-log.rep
     // SOC
     { provide: SOC_ALERT_REPOSITORY, useClass: MysqlSocAlertRepository },
     { provide: INCIDENT_REPOSITORY, useClass: MysqlIncidentRepository },
-    { provide: AUDIT_LOG_REPOSITORY, useClass: MysqlAuditLogRepository },
+    { provide: INJECTION_TOKENS.AUDIT_LOG_REPOSITORY, useClass: MysqlAuditLogRepository },
+    { provide: 'AUDIT_LOG_REPOSITORY', useExisting: INJECTION_TOKENS.AUDIT_LOG_REPOSITORY },
+    { provide: INJECTION_TOKENS.SECURITY_EVENTS_PORT, useClass: MysqlSecurityEventsRepository },
+    { provide: INJECTION_TOKENS.API_METRICS_PORT, useClass: MysqlApiMetricsRepository },
+    { provide: TENANT_API_KEY_REPOSITORY, useClass: MySqlTenantApiKeyRepository },
+
+    // Platform
+    { provide: PLATFORM_IDENTITY_REPOSITORY, useClass: MysqlPlatformIdentityRepository },
+    { provide: PLATFORM_API_KEY_REPOSITORY, useClass: MysqlPlatformApiKeyRepository },
+    { provide: PLATFORM_ROLE_REPOSITORY, useClass: MysqlPlatformRoleRepository },
+    { provide: PLATFORM_ROLE_ASSIGNMENT_REPOSITORY, useClass: MysqlPlatformRoleAssignmentRepository },
   ],
   exports: [
     INJECTION_TOKENS.USER_REPOSITORY,
@@ -96,7 +121,21 @@ import { AUDIT_LOG_REPOSITORY } from '../../../domain/repositories/audit-log.rep
 
     SOC_ALERT_REPOSITORY,
     INCIDENT_REPOSITORY,
-    AUDIT_LOG_REPOSITORY,
+
+    PLATFORM_IDENTITY_REPOSITORY,
+    PLATFORM_API_KEY_REPOSITORY,
+    PLATFORM_ROLE_REPOSITORY,
+    PLATFORM_ROLE_ASSIGNMENT_REPOSITORY,
+    INJECTION_TOKENS.AUDIT_LOG_REPOSITORY,
+    'AUDIT_LOG_REPOSITORY',
+    INJECTION_TOKENS.SECURITY_EVENTS_PORT,
+    INJECTION_TOKENS.API_METRICS_PORT,
+    TENANT_API_KEY_REPOSITORY,
+
+    PLATFORM_IDENTITY_REPOSITORY,
+    PLATFORM_API_KEY_REPOSITORY,
+    PLATFORM_ROLE_REPOSITORY,
+    PLATFORM_ROLE_ASSIGNMENT_REPOSITORY,
   ],
 })
 export class RepositoriesModule {}

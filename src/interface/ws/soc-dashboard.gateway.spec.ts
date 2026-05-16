@@ -8,7 +8,7 @@
  */
 
 import { createHmac } from 'crypto';
-import { IntegrityViolationException } from '../http/controllers/admin.controller';
+import { IntegrityViolationException } from '../../domain/exceptions/domain.exception';
 import { AlertWorkflowState, SocAlert } from '../../application/ports/driven/i-alert.repository';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

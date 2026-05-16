@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "graph": "uicp-retry",
+  "version": "1.0.0",
+  "generated": "2026-05-16",
+  "nodes": [
+    {
+      "id": "otp-delivery-retry",
+      "type": "retry-policy",
+      "name": "OTP Delivery Retry Policy",
+      "criticality": "HIGH",
+      "strategy": "immediate-then-exponential",
+      "maxRetries": 3,
+      "backoffBase": "1s",
+      "dependsOn": ["otp-service", "queue-adapter"],
+      "failureImpact": ["otp-delivery-failures"]
+    },
+    {
+      "id": "sms-delivery-retry",
+      "type": "retry-policy",
+      "name": "SMS Delivery Retry Policy",
+      "criticality": "HIGH",
+      "strategy": "exponential",
+      "maxRetries": 3,
+      "backoffBase": "2s",
+      "dependsOn": ["msg91-adapter", "queue-adapter"],
+      "failureImpact": ["sms-delivery-failures"]
+    },
+    {
+      "id": "email-delivery-retry",
+      "type": "retry-policy",
+      "name": "Email Delivery Retry Policy",
+      "criticality": "MEDIUM",
+      "strategy": "exponential",
+      "maxRetries": 3,
+      "backoffBase": "5s",
+      "dependsOn": ["email-adapter", "queue-adapter"],
+      "failureImpact": ["email-delivery-failures"]
+    },
+    {
+      "id": "webhook-delivery-retry",
+      "type": "retry-policy",
+      "name": "Webhook Delivery Retry Policy",
+      "criticality": "LOW",
+      "strategy": "linear",
+      "maxRetries": 5,
+      "backoffBase": "10s",
+      "dependsOn": ["webhook-service", "queue-adapter"],
+      "failureImpact": ["webhook-failures"]
+    },
+    {
+      "id": "token-issuance-retry",
+      "type": "retry-policy",
+      "name": "Token Issuance Retry Policy",
+      "criticality": "HIGH",
+      "strategy": "exponential",
+      "maxRetries": 2,
+      "backoffBase": "500ms",
+      "dependsOn": ["token-service", "kms-service"],
+      "failureImpact": ["token-generation-failures"]
+    },
+    {
+      "id": "session-creation-retry",
+      "type": "retry-policy",
+      "name": "Session Creation Retry Policy",
+      "criticality": "HIGH",
+      "strategy": "exponential",
+      "maxRetries": 2,
+      "backoffBase": "500ms",
+      "dependsOn": ["session-service", "redis-session-store"],
+      "failureImpact": ["session-creation-failures"]
+    },
+    {
+      "id": "database-write-retry",
+      "type": "retry-policy",
+      "name": "Database Write Retry Policy",
+      "criticality": "CRITICAL",
+      "strategy": "exponential",
+      "maxRetries": 3,
+      "backoffBase": "1s",
+      "dependsOn": ["mysql-primary", "transaction-manager"],
+      "failureImpact": ["write-failures", "data-loss"]
+    },
+    {
+      "id": "cache-operation-retry",
+      "type": "retry-policy",
+      "name": "Cache Operation Retry Policy",
+      "criticality": "HIGH",
+      "strategy": "immediate",
+      "maxRetries": 2,
+      "backoffBase": "100ms",
+      "dependsOn": ["redis-cache"],
+      "failureImpact": ["cache-misses", "slow-operations"]
+    },
+    {
+      "id": "lock-acquisition-retry",
+      "type": "retry-policy",
+      "name": "Distributed Lock Retry Policy",
+      "criticality": "HIGH",
+      "strategy": "exponential",
+      "maxRetries": 3,
+      "backoffBase": "200ms",
+      "dependsOn": ["redis-lock"],
+      "failureImpact": ["lock-timeouts", "concurrency-issues"]
+    },
+    {
+      "id": "idempotency-retry",
+      "type": "retry-policy",
+      "name": "Idempotency Safe Retry",
+      "criticality": "HIGH",
+      "strategy": "none",
+      "maxRetries": 0,
+      "dependsOn": ["idempotency-service"],
+      "failureImpact": ["duplicate-processing"]
+    },
+    {
+      "id": "provider-circuit-breaker",
+      "type": "retry-policy",
+      "name": "Provider Circuit Breaker",
+      "criticality": "HIGH",
+      "strategy": "circuit-breaker",
+      "failureThreshold": 5,
+      "timeout": "30s",
+      "dependsOn": ["provider-health-runtime"],
+      "failureImpact": ["provider-failover", "cascading-failures"]
+    }
+  ],
+  "edges": [
+    { "from": "otp-delivery-retry", "to": "queue-adapter", "label": "enqueues" },
+    { "from": "sms-delivery-retry", "to": "queue-adapter", "label": "enqueues" },
+    { "from": "email-delivery-retry", "to": "queue-adapter", "label": "enqueues" },
+    { "from": "webhook-delivery-retry", "to": "queue-adapter", "label": "enqueues" },
+    { "from": "database-write-retry", "to": "transaction-manager", "label": "executes" },
+    { "from": "cache-operation-retry", "to": "redis-cache", "label": "operates" },
+    { "from": "lock-acquisition-retry", "to": "redis-lock", "label": "acquires" },
+    { "from": "provider-circuit-breaker", "to": "msg91-adapter", "label": "protects" },
+    { "from": "provider-circuit-breaker", "to": "resend-adapter", "label": "protects" },
+    { "from": "provider-circuit-breaker", "to": "maileroo-adapter", "label": "protects" }
+  ]
+}
